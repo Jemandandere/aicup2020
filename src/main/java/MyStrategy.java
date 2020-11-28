@@ -8,24 +8,65 @@ public class MyStrategy {
     Integer myId;
 
 
-    private static Map<EntityType, Integer> unitMax = new HashMap<EntityType, Integer>();
+    private static Map<Integer, Limits> limits = new HashMap<Integer, Limits>();
 
-    private static List<Vec2Int> housesPositions = new ArrayList<>();
-    private static Vec2Int houseToBuild;
-    private static int housesCountPrev = -1;
-    private static Set<Integer> houseRepaired = new HashSet<>();
-    private static int repairTick = 0;
+    private class Limits {
+        private Integer builderLimit;
+        private Integer meleeLimit;
+        private Integer rangeLimit;
+
+        public Limits(Integer builderLimit, Integer meleeLimit, Integer rangeLimit) {
+            this.builderLimit = builderLimit;
+            this.meleeLimit = meleeLimit;
+            this.rangeLimit = rangeLimit;
+        }
+
+        public Integer getLimit(EntityType entityType) {
+            switch (entityType) {
+                case BUILDER_UNIT:
+                    return builderLimit;
+                case MELEE_UNIT:
+                    return meleeLimit;
+                case RANGED_UNIT:
+                    return rangeLimit;
+                default:
+                    return 0;
+            }
+        }
+    }
+
+    private static List<Buildings> buildQueue = new ArrayList<>();
+    private static Buildings toBuild;
+    private static Integer countBuildsPrev = 0;
+
+    private static class Buildings {
+        private Vec2Int pos;
+        private EntityType type;
+
+        public Buildings(Vec2Int pos, EntityType type) {
+            this.pos = pos;
+            this.type = type;
+        }
+
+        public Vec2Int getPos() {
+            return pos;
+        }
+
+        public EntityType getType() {
+            return type;
+        }
+    }
+
     static {
-        unitMax.put(EntityType.BUILDER_UNIT, 10);
-        unitMax.put(EntityType.MELEE_UNIT, 0);
-        unitMax.put(EntityType.RANGED_UNIT, 99);
-
-        housesPositions.add(new Vec2Int(8, 2));
-        housesPositions.add(new Vec2Int(5, 2));
-        housesPositions.add(new Vec2Int(2, 2));
-        housesPositions.add(new Vec2Int(2, 5));
-        housesPositions.add(new Vec2Int(2, 8));
-        housesPositions.add(new Vec2Int(0, 0));
+        buildQueue.add(new Buildings(new Vec2Int(2, 8), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(2, 5), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(2, 2), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(5, 2), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(8, 2), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(10, 5), EntityType.RANGED_BASE));
+        buildQueue.add(new Buildings(new Vec2Int(11, 2), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(14, 2), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(17, 2), EntityType.HOUSE));
     }
 
     public static class Ent {
@@ -38,6 +79,8 @@ public class MyStrategy {
         static HashMap<Integer, Entity> meleeUnits = new HashMap<>();
         static HashMap<Integer, Entity> rangeUnits = new HashMap<>();
 
+        static HashMap<Integer, Entity> totalBuildings = new HashMap<>();
+        private static int countBuilds = 0; // Сколько зданий было построено, изначальные тоже считаются
         static HashMap<Integer, Entity> totalBases = new HashMap<>();
         static HashMap<Integer, Entity> builderBases = new HashMap<>();
         static HashMap<Integer, Entity> meleeBases = new HashMap<>();
@@ -54,6 +97,10 @@ public class MyStrategy {
             for (Entity newEntity : newEntities) {
                 if (oldEntities.contains(newEntity.getId())) {
                     oldEntities.remove(newEntity.getId());
+                } else {
+                    if (isBuildings(newEntity)) {
+                        countBuilds += 1;
+                    }
                 }
                 add(newEntity);
             }
@@ -62,6 +109,22 @@ public class MyStrategy {
             for (Integer oldEntity : oldEntities) {
                 remove(oldEntity);
             }
+        }
+
+        private static boolean isBuildings(Entity entity) {
+            for (EntityType entityType : new EntityType[]{
+                    EntityType.BUILDER_BASE,
+                    EntityType.MELEE_BASE,
+                    EntityType.RANGED_BASE,
+                    EntityType.HOUSE,
+                    EntityType.TURRET,
+                    EntityType.WALL,
+            }) {
+                if (entity.getEntityType().equals(entityType)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static void add(Entity e) {
@@ -80,24 +143,30 @@ public class MyStrategy {
                     rangeUnits.put(e.getId(), e);
                     break;
                 case BUILDER_BASE:
+                    totalBuildings.put(e.getId(), e);
                     totalBases.put(e.getId(), e);
                     builderBases.put(e.getId(), e);
                     break;
                 case MELEE_BASE:
+                    totalBuildings.put(e.getId(), e);
                     totalBases.put(e.getId(), e);
                     meleeBases.put(e.getId(), e);
                     break;
                 case RANGED_BASE:
+                    totalBuildings.put(e.getId(), e);
                     totalBases.put(e.getId(), e);
                     rangeBases.put(e.getId(), e);
                     break;
                 case HOUSE:
+                    totalBuildings.put(e.getId(), e);
                     totalHouses.put(e.getId(), e);
                     break;
                 case TURRET:
+                    totalBuildings.put(e.getId(), e);
                     totalTurrels.put(e.getId(), e);
                     break;
                 case WALL:
+                    totalBuildings.put(e.getId(), e);
                     totalWalls.put(e.getId(), e);
                     break;
             }
@@ -127,19 +196,46 @@ public class MyStrategy {
         // Инициализируемся
         if (playerView.getCurrentTick() == 0) {
             myId = playerView.getMyId();
+            // Зададим лимиты
+            limits.put(0, new Limits(0,0,0));
+            limits.put(5, new Limits(5,0,0));
+            limits.put(10, new Limits(10,0,0));
+            limits.put(15, new Limits(10,0,5));
+            limits.put(20, new Limits(10,0,10));
+            limits.put(25, new Limits(10,0,15));
+            limits.put(30, new Limits(10,0,20));
+            limits.put(35, new Limits(15,0,20));
+            limits.put(40, new Limits(15,0,25));
+            limits.put(45, new Limits(15,0,30));
+            limits.put(50, new Limits(15,0,35));
+            limits.put(55, new Limits(15,0,40));
+            limits.put(60, new Limits(20,0,40));
+            limits.put(65, new Limits(20,0,45));
+            limits.put(70, new Limits(20,0,50));
+            limits.put(75, new Limits(20,0,55));
+            limits.put(80, new Limits(20,0,60));
+            limits.put(85, new Limits(20,0,65));
+            limits.put(90, new Limits(20,0,70));
+            limits.put(95, new Limits(20,0,75));
+            limits.put(100, new Limits(20,0,80));
         }
-        System.out.println(playerView.getCurrentTick());
+
         // Все сущности разместим в удобном хранилище
         Ent.update(Arrays.stream(playerView.getEntities()).filter(e -> myId.equals(e.getPlayerId())).collect(Collectors.toSet()));
 
-        int builders_count = 0;
+        int currentLimit = 0; // Максимальное количество лимита
+        for (Entity entity : Ent.totalBuildings.values()) {
+            currentLimit += playerView.getEntityProperties().get(entity.getEntityType()).getPopulationProvide();
+        }
 
+        int builders_count = 0;
         // Рабочие вседа добывают, но один строит
         for (Integer i : Ent.builderUnits.keySet()) {
             Entity entity = Ent.builderUnits.get(i);
             builders_count += 1;
             // Если это наш особенный
-            if ((housesPositions.size() > 0) & (builders_count == unitMax.get(EntityType.BUILDER_UNIT)) & (Ent.builderUnitHouse == null)) {
+
+            if ((buildQueue.size() > 0) & (builders_count == limits.get(currentLimit).getLimit(EntityType.BUILDER_UNIT)) & (Ent.builderUnitHouse == null)) {
                 Ent.builderUnitHouse = entity.getId();
             }
             MoveAction m = null;
@@ -147,24 +243,30 @@ public class MyStrategy {
             BuildAction b = null;
             RepairAction r = null;
             if ((Ent.builderUnitHouse != null) && (Ent.builderUnitHouse == entity.getId())) {
-                Set<Integer> houseToRepair = new HashSet<>();
-                for (Entity house : Ent.totalHouses.values()) {
-                    if (!house.isActive()) {
-                        houseToRepair.add(house.getId());
+                Set<Integer> toActivate = new HashSet<>();
+                for (Entity e : Ent.totalBuildings.values()) {
+                    if (!e.isActive()) {
+                        toActivate.add(e.getId());
                     }
                 }
-                if (houseToRepair.iterator().hasNext()){
-                    r = new RepairAction(houseToRepair.iterator().next());
-                } else if (housesPositions.iterator().hasNext()) {
-                    if (housesCountPrev < Ent.totalHouses.values().size()) {
-                        housesCountPrev = Ent.totalHouses.values().size();
-                        houseToBuild = housesPositions.remove(0);
+                if (toActivate.iterator().hasNext()){
+                    r = new RepairAction(toActivate.iterator().next());
+                    toBuild = null;
+                } else if ((buildQueue.iterator().hasNext()) | (toBuild != null)) {
+                    if (countBuildsPrev < Ent.countBuilds) {
+                        countBuildsPrev = Ent.countBuilds;
+                        toBuild = buildQueue.remove(0);
                     }
-                    m = new MoveAction(new Vec2Int(houseToBuild.getX()-1, houseToBuild.getY()), true, false);
-                    b = new BuildAction(EntityType.HOUSE, houseToBuild);
+                    m = new MoveAction(new Vec2Int(toBuild.getPos().getX() + 1, toBuild.getPos().getY() - 1), true, false);
+                    b = new BuildAction(toBuild.getType(), toBuild.getPos());
                 } else {
-                    Ent.builderUnitHouse = null;
-                    unitMax.put(EntityType.BUILDER_UNIT, 15);
+                    a = new AttackAction(
+                            null,
+                            new AutoAttack(
+                                    playerView.getMapSize(),
+                                    new EntityType[]{EntityType.RESOURCE}
+                            )
+                    );
                 }
             } else {
                 a = new AttackAction(
@@ -185,25 +287,15 @@ public class MyStrategy {
             MoveAction m = null;
             AttackAction a = null;
             if (Ent.rangeUnits.size() < 10) {
-                m = new MoveAction(new Vec2Int(playerView.getMapSize()/4 - 1, playerView.getMapSize()/4 - 1), true, false);
+                m = new MoveAction(new Vec2Int(14, 14), true, false);
                 a = new AttackAction(
                         null,
                         new AutoAttack(
-                                entityProperties.getSightRange(),
+                                entityProperties.getSightRange()*2,
                                 new EntityType[]{}
                         )
                 );
-            } /*else if ((10 <= Ent.rangeUnits.size()) & (Ent.rangeUnits.size() < 20)) {
-                m = new MoveAction(new Vec2Int(playerView.getMapSize()/2 - 1, playerView.getMapSize()/2 - 1), true, false);
-                a = new AttackAction(
-                        null,
-                        new AutoAttack(
-                                playerView.getMapSize(), // Уничтожаем всё вокруг
-                                //entityProperties.getSightRange(), // Бъем только окружающих
-                                new EntityType[]{}
-                        )
-                );
-            } */else {
+            } else {
                 m = new MoveAction(new Vec2Int(playerView.getMapSize()/2 - 1, playerView.getMapSize()/2 - 1), true, false);
                 a = new AttackAction(
                         null,
@@ -236,6 +328,7 @@ public class MyStrategy {
             actions.put(i, new EntityAction(m, null, a, null));
         }
 
+        // Базы просто клепают юнитов как могут, а могут они быстро
         for (Integer i : Ent.totalBases.keySet()) {
             Entity entity = Ent.totalBases.get(i);
             EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
@@ -243,7 +336,7 @@ public class MyStrategy {
             EntityType entityType = buildProperties.getOptions()[0];
             Integer currentUnits = Math.toIntExact(Arrays.stream(playerView.getEntities()).filter(e -> myId.equals(e.getPlayerId()) & e.getEntityType() == entityType).count());
             BuildAction b = null;
-            if ((currentUnits + 1) * playerView.getEntityProperties().get(entityType).getPopulationUse() <= unitMax.get(entityType)) {
+            if ((currentUnits + 1) * playerView.getEntityProperties().get(entityType).getPopulationUse() <= limits.get(currentLimit).getLimit(entityType)) {
                 b = new BuildAction(
                     entityType,
                     new Vec2Int(
@@ -269,10 +362,10 @@ public class MyStrategy {
             actions.put(i, new EntityAction(null, null, a, null));
         }
 
+        // Здания просто стоят и выглядят ахуенно
         for (Integer i : Ent.totalHouses.keySet()) {
             Entity entity = Ent.totalHouses.get(i);
             EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
-            System.out.println(entity.getHealth() + "/" + entityProperties.getMaxHealth() + " " + entity.isActive());
             actions.put(i, new EntityAction(null, null, null, null));
         }
 
