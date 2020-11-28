@@ -125,7 +125,6 @@ public class MyStrategy {
 
     public Action getAction(PlayerView playerView, DebugInterface debugInterface) {
         HashMap<Integer, EntityAction> actions = new HashMap<>();
-        System.out.println(playerView.getCurrentTick());
         // Инициализируемся
         if (playerView.getCurrentTick() == 0) {
             myId = playerView.getMyId();
@@ -214,11 +213,11 @@ public class MyStrategy {
                         )
                 );
             } */else {
-                m = new MoveAction(new Vec2Int(playerView.getMapSize()/2 - 1, playerView.getMapSize()/2 - 1), true, true);
+                m = new MoveAction(new Vec2Int(playerView.getMapSize()/2 - 1, playerView.getMapSize()/2 - 1), true, false);
                 a = new AttackAction(
                         null,
                         new AutoAttack(
-                                playerView.getMapSize(), // Уничтожаем всё вокруг
+                                playerView.getMapSize() * 2, // Уничтожаем всё вокруг
                                 //entityProperties.getSightRange(), // Бъем только окружающих
                                 new EntityType[]{}
                         )
@@ -258,7 +257,7 @@ public class MyStrategy {
                     entityType,
                     new Vec2Int(
                         entity.getPosition().getX(),
-                        entity.getPosition().getY() - 1
+                        entity.getPosition().getY() + entityProperties.getSize()
                     )
                 );
             }
@@ -281,7 +280,6 @@ public class MyStrategy {
 
         for (Integer i : Ent.totalHouses.keySet()) {
             Entity entity = Ent.totalHouses.get(i);
-            System.out.println("" + entity.getHealth() + "/" + playerView.getEntityProperties().get(EntityType.HOUSE).getMaxHealth() + " " + entity.isActive());
             actions.put(i, new EntityAction(null, null, null, null));
         }
 
