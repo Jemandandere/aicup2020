@@ -54,9 +54,8 @@ public class MyStrategy {
             for (Entity newEntity : newEntities) {
                 if (oldEntities.contains(newEntity.getId())) {
                     oldEntities.remove(newEntity.getId());
-                } else {
-                    add(newEntity);
                 }
+                add(newEntity);
             }
 
             // Всё что не нашлось среди новых значений считаем что было убито и исключаем из мап.
@@ -129,17 +128,11 @@ public class MyStrategy {
         if (playerView.getCurrentTick() == 0) {
             myId = playerView.getMyId();
         }
-
+        System.out.println(playerView.getCurrentTick());
         // Все сущности разместим в удобном хранилище
         Ent.update(Arrays.stream(playerView.getEntities()).filter(e -> myId.equals(e.getPlayerId())).collect(Collectors.toSet()));
 
         int builders_count = 0;
-        Set<Integer> houseToRepair = new HashSet<>();
-        for (Entity entity : Ent.totalHouses.values()) {
-            if (!entity.isActive() & !houseRepaired.contains(entity.getId())) {
-                houseToRepair.add(entity.getId());
-            }
-        }
 
         // Рабочие вседа добывают, но один строит
         for (Integer i : Ent.builderUnits.keySet()) {
@@ -154,16 +147,14 @@ public class MyStrategy {
             BuildAction b = null;
             RepairAction r = null;
             if ((Ent.builderUnitHouse != null) && (Ent.builderUnitHouse == entity.getId())) {
-                if (houseToRepair.iterator().hasNext()){
-                    // Этот кусок мне пригодится позже, а сейчас, я так понимаю, нужен костыль.
-                    int id = houseToRepair.iterator().next();
-                    r = new RepairAction(id);
-                    if (repairTick == 0) {
-                        repairTick = playerView.getCurrentTick();
-                    } else if (playerView.getCurrentTick() - repairTick > 10) {
-                        repairTick = 0;
-                        houseRepaired.add(id);
+                Set<Integer> houseToRepair = new HashSet<>();
+                for (Entity house : Ent.totalHouses.values()) {
+                    if (!house.isActive()) {
+                        houseToRepair.add(house.getId());
                     }
+                }
+                if (houseToRepair.iterator().hasNext()){
+                    r = new RepairAction(houseToRepair.iterator().next());
                 } else if (housesPositions.iterator().hasNext()) {
                     if (housesCountPrev < Ent.totalHouses.values().size()) {
                         housesCountPrev = Ent.totalHouses.values().size();
@@ -280,6 +271,8 @@ public class MyStrategy {
 
         for (Integer i : Ent.totalHouses.keySet()) {
             Entity entity = Ent.totalHouses.get(i);
+            EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
+            System.out.println(entity.getHealth() + "/" + entityProperties.getMaxHealth() + " " + entity.isActive());
             actions.put(i, new EntityAction(null, null, null, null));
         }
 
