@@ -1,15 +1,32 @@
 import model.*;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.function.Consumer;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class MyStrategy {
 
     Integer myId;
+
+
+    private static Map<EntityType, Integer> unitMax = new HashMap<EntityType, Integer>();
+
+    private static List<Vec2Int> housesPositions = new ArrayList<>();
+    private static Vec2Int houseToBuild;
+    private static int housesCountPrev = -1;
+    private static Set<Integer> houseRepaired = new HashSet<>();
+    private static int repairTick = 0;
+    static {
+        unitMax.put(EntityType.BUILDER_UNIT, 10);
+        unitMax.put(EntityType.MELEE_UNIT, 0);
+        unitMax.put(EntityType.RANGED_UNIT, 99);
+
+        housesPositions.add(new Vec2Int(8, 2));
+        housesPositions.add(new Vec2Int(5, 2));
+        housesPositions.add(new Vec2Int(2, 2));
+        housesPositions.add(new Vec2Int(2, 5));
+        housesPositions.add(new Vec2Int(2, 8));
+        housesPositions.add(new Vec2Int(0, 0));
+    }
 
     public static class Ent {
 
@@ -17,6 +34,7 @@ public class MyStrategy {
 
         static HashMap<Integer, Entity> totalUnits = new HashMap<>();
         static HashMap<Integer, Entity> builderUnits = new HashMap<>();
+        static Integer builderUnitHouse = null;
         static HashMap<Integer, Entity> meleeUnits = new HashMap<>();
         static HashMap<Integer, Entity> rangeUnits = new HashMap<>();
 
@@ -25,7 +43,7 @@ public class MyStrategy {
         static HashMap<Integer, Entity> meleeBases = new HashMap<>();
         static HashMap<Integer, Entity> rangeBases = new HashMap<>();
 
-        static HashMap<Integer, Entity> totalHouse = new HashMap<>();
+        static HashMap<Integer, Entity> totalHouses = new HashMap<>();
         static HashMap<Integer, Entity> totalTurrels = new HashMap<>();
         static HashMap<Integer, Entity> totalWalls = new HashMap<>();
 
@@ -75,7 +93,7 @@ public class MyStrategy {
                     rangeBases.put(e.getId(), e);
                     break;
                 case HOUSE:
-                    totalHouse.put(e.getId(), e);
+                    totalHouses.put(e.getId(), e);
                     break;
                 case TURRET:
                     totalTurrels.put(e.getId(), e);
@@ -96,9 +114,12 @@ public class MyStrategy {
             builderBases.remove(i);
             meleeBases.remove(i);
             rangeBases.remove(i);
-            totalHouse.remove(i);
+            totalHouses.remove(i);
             totalTurrels.remove(i);
             totalWalls.remove(i);
+            if (builderUnitHouse == i) {
+                builderUnitHouse = null;
+            }
         }
     }
 
@@ -113,15 +134,113 @@ public class MyStrategy {
         // Все сущности разместим в удобном хранилище
         Ent.update(Arrays.stream(playerView.getEntities()).filter(e -> myId.equals(e.getPlayerId())).collect(Collectors.toSet()));
 
-        for (Integer i : Ent.totalUnits.keySet()) {
-            Entity entity = Ent.totalUnits.get(i);
+        int builders_count = 0;
+        Set<Integer> houseToRepair = new HashSet<>();
+        for (Entity entity : Ent.totalHouses.values()) {
+            if (!entity.isActive() & !houseRepaired.contains(entity.getId())) {
+                houseToRepair.add(entity.getId());
+            }
+        }
+
+        // Рабочие вседа добывают, но один строит
+        for (Integer i : Ent.builderUnits.keySet()) {
+            Entity entity = Ent.builderUnits.get(i);
+            builders_count += 1;
+            // Если это наш особенный
+            if ((housesPositions.size() > 0) & (builders_count == unitMax.get(EntityType.BUILDER_UNIT)) & (Ent.builderUnitHouse == null)) {
+                Ent.builderUnitHouse = entity.getId();
+            }
+            MoveAction m = null;
+            AttackAction a = null;
+            BuildAction b = null;
+            RepairAction r = null;
+            if ((Ent.builderUnitHouse != null) && (Ent.builderUnitHouse == entity.getId())) {
+                if (houseToRepair.iterator().hasNext()){
+                    // Этот кусок мне пригодится позже, а сейчас, я так понимаю, нужен костыль.
+                    int id = houseToRepair.iterator().next();
+                    r = new RepairAction(id);
+                    if (repairTick == 0) {
+                        repairTick = playerView.getCurrentTick();
+                    } else if (playerView.getCurrentTick() - repairTick > 10) {
+                        repairTick = 0;
+                        houseRepaired.add(id);
+                    }
+                } else if (housesPositions.iterator().hasNext()) {
+                    if (housesCountPrev < Ent.totalHouses.values().size()) {
+                        housesCountPrev = Ent.totalHouses.values().size();
+                        houseToBuild = housesPositions.remove(0);
+                    }
+                    m = new MoveAction(new Vec2Int(houseToBuild.getX()-1, houseToBuild.getY()), true, false);
+                    b = new BuildAction(EntityType.HOUSE, houseToBuild);
+                } else {
+                    Ent.builderUnitHouse = null;
+                    unitMax.put(EntityType.BUILDER_UNIT, 15);
+                }
+            } else {
+                a = new AttackAction(
+                        null,
+                        new AutoAttack(
+                                playerView.getMapSize(),
+                                new EntityType[]{EntityType.RESOURCE}
+                        )
+                );
+            }
+            actions.put(i, new EntityAction(m, b, a, r));
+        }
+
+        // Рэнжи кооперируются и разъебывают
+        for (Integer i : Ent.rangeUnits.keySet()) {
+            Entity entity = Ent.rangeUnits.get(i);
             EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
-            MoveAction m = new MoveAction(new Vec2Int(playerView.getMapSize() - 1, playerView.getMapSize() - 1), true, true);
+            MoveAction m = null;
+            AttackAction a = null;
+            if (Ent.rangeUnits.size() < 10) {
+                m = new MoveAction(new Vec2Int(playerView.getMapSize()/4 - 1, playerView.getMapSize()/4 - 1), true, false);
+                a = new AttackAction(
+                        null,
+                        new AutoAttack(
+                                entityProperties.getSightRange(),
+                                new EntityType[]{}
+                        )
+                );
+            } /*else if ((10 <= Ent.rangeUnits.size()) & (Ent.rangeUnits.size() < 20)) {
+                m = new MoveAction(new Vec2Int(playerView.getMapSize()/2 - 1, playerView.getMapSize()/2 - 1), true, false);
+                a = new AttackAction(
+                        null,
+                        new AutoAttack(
+                                playerView.getMapSize(), // Уничтожаем всё вокруг
+                                //entityProperties.getSightRange(), // Бъем только окружающих
+                                new EntityType[]{}
+                        )
+                );
+            } */else {
+                m = new MoveAction(new Vec2Int(playerView.getMapSize()/2 - 1, playerView.getMapSize()/2 - 1), true, true);
+                a = new AttackAction(
+                        null,
+                        new AutoAttack(
+                                playerView.getMapSize(), // Уничтожаем всё вокруг
+                                //entityProperties.getSightRange(), // Бъем только окружающих
+                                new EntityType[]{}
+                        )
+                );
+            }
+            actions.put(i, new EntityAction(m, null, a, null));
+        }
+
+        // Милик просто идёт на разведку и убивается, потому что может, потому что он герой, а ещё потому что он нахуй не нужен
+        for (Integer i : Ent.meleeUnits.keySet()) {
+            Entity entity = Ent.meleeUnits.get(i);
+            EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
+            MoveAction m = new MoveAction(
+                new Vec2Int(
+                    playerView.getMapSize() - (Ent.builderBases.entrySet().iterator().hasNext() ? Ent.builderBases.entrySet().iterator().next().getValue().getPosition().getX() : 5),
+                    playerView.getMapSize() - (Ent.builderBases.entrySet().iterator().hasNext() ? Ent.builderBases.entrySet().iterator().next().getValue().getPosition().getY() : 5)
+                ),true, true);
             AttackAction a = new AttackAction(
                     null,
                     new AutoAttack(
-                            entityProperties.getSightRange(),
-                            entity.getEntityType() == EntityType.BUILDER_UNIT ? new EntityType[]{EntityType.RESOURCE} : new EntityType[]{}
+                            playerView.getMapSize(),
+                            new EntityType[]{}
                     )
             );
             actions.put(i, new EntityAction(m, null, a, null));
@@ -134,18 +253,19 @@ public class MyStrategy {
             EntityType entityType = buildProperties.getOptions()[0];
             Integer currentUnits = Math.toIntExact(Arrays.stream(playerView.getEntities()).filter(e -> myId.equals(e.getPlayerId()) & e.getEntityType() == entityType).count());
             BuildAction b = null;
-            if ((currentUnits + 1) * playerView.getEntityProperties().get(entityType).getPopulationUse() <= entityProperties.getPopulationProvide()) {
+            if ((currentUnits + 1) * playerView.getEntityProperties().get(entityType).getPopulationUse() <= unitMax.get(entityType)) {
                 b = new BuildAction(
                     entityType,
                     new Vec2Int(
-                        entity.getPosition().getX() + entityProperties.getSize(),
-                        entity.getPosition().getY() + entityProperties.getSize() - 1
+                        entity.getPosition().getX(),
+                        entity.getPosition().getY() - 1
                     )
                 );
             }
             actions.put(i, new EntityAction(null, b, null, null));
         }
 
+        // Туррели просто постоянно хуярят
         for (Integer i : Ent.totalTurrels.keySet()) {
             Entity entity = Ent.totalTurrels.get(i);
             EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
@@ -157,6 +277,12 @@ public class MyStrategy {
                     )
             );
             actions.put(i, new EntityAction(null, null, a, null));
+        }
+
+        for (Integer i : Ent.totalHouses.keySet()) {
+            Entity entity = Ent.totalHouses.get(i);
+            System.out.println("" + entity.getHealth() + "/" + playerView.getEntityProperties().get(EntityType.HOUSE).getMaxHealth() + " " + entity.isActive());
+            actions.put(i, new EntityAction(null, null, null, null));
         }
 
 
