@@ -67,6 +67,9 @@ public class MyStrategy {
         buildQueue.add(new Buildings(new Vec2Int(11, 2), EntityType.HOUSE));
         buildQueue.add(new Buildings(new Vec2Int(14, 2), EntityType.HOUSE));
         buildQueue.add(new Buildings(new Vec2Int(17, 2), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(20, 8), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(20, 5), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(20, 2), EntityType.HOUSE));
     }
 
     public static class Ent {
@@ -203,7 +206,7 @@ public class MyStrategy {
             limits.put(15, new Limits(10,0,5));
             limits.put(20, new Limits(10,0,10));
             limits.put(25, new Limits(10,0,15));
-            limits.put(30, new Limits(10,0,20));
+            limits.put(30, new Limits(15,0,15));
             limits.put(35, new Limits(15,0,20));
             limits.put(40, new Limits(15,0,25));
             limits.put(45, new Limits(15,0,30));
