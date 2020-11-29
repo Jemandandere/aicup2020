@@ -85,10 +85,10 @@ public class MyStrategy {
         buildQueue.add(new Buildings(new Vec2Int(18, 15), EntityType.TURRET));
         buildQueue.add(new Buildings(new Vec2Int(21, 14), EntityType.TURRET));
         buildQueue.add(new Buildings(new Vec2Int(24, 13), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(24, 10), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(24, 7), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(24, 4), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(24, 1), EntityType.TURRET));
+        buildQueue.add(new Buildings(new Vec2Int(25, 10), EntityType.TURRET));
+        buildQueue.add(new Buildings(new Vec2Int(25, 7), EntityType.TURRET));
+        buildQueue.add(new Buildings(new Vec2Int(25, 4), EntityType.TURRET));
+        buildQueue.add(new Buildings(new Vec2Int(25, 1), EntityType.TURRET));
 
     }
 
@@ -223,24 +223,24 @@ public class MyStrategy {
             limits.put(0, new Limits(0,0,0));
             limits.put(5, new Limits(5,0,0));
             limits.put(10, new Limits(10,0,0));
-            limits.put(15, new Limits(10,0,5));
-            limits.put(20, new Limits(10,0,10));
-            limits.put(25, new Limits(10,0,15));
-            limits.put(30, new Limits(15,0,15));
-            limits.put(35, new Limits(15,0,20));
-            limits.put(40, new Limits(15,0,25));
-            limits.put(45, new Limits(15,0,30));
-            limits.put(50, new Limits(15,0,35));
-            limits.put(55, new Limits(15,0,40));
-            limits.put(60, new Limits(20,0,40));
-            limits.put(65, new Limits(20,0,45));
-            limits.put(70, new Limits(20,0,50));
-            limits.put(75, new Limits(25,0,50));
-            limits.put(80, new Limits(25,0,55));
-            limits.put(85, new Limits(25,0,60));
-            limits.put(90, new Limits(25,0,65));
-            limits.put(95, new Limits(25,0,70));
-            limits.put(100, new Limits(25,0,75));
+            limits.put(15, new Limits(14,0,1));
+            limits.put(20, new Limits(19,0,1));
+            limits.put(25, new Limits(24,0,1));
+            limits.put(30, new Limits(25,0,5));
+            limits.put(35, new Limits(25,0,10));
+            limits.put(40, new Limits(25,0,15));
+            limits.put(45, new Limits(25,0,20));
+            limits.put(50, new Limits(25,0,25));
+            limits.put(55, new Limits(30,0,25));
+            limits.put(60, new Limits(35,0,25));
+            limits.put(65, new Limits(35,0,30));
+            limits.put(70, new Limits(35,0,35));
+            limits.put(75, new Limits(35,0,40));
+            limits.put(80, new Limits(35,0,45));
+            limits.put(85, new Limits(35,0,50));
+            limits.put(90, new Limits(35,0,55));
+            limits.put(95, new Limits(35,0,60));
+            limits.put(100, new Limits(35,0,65));
         }
 
         // Все сущности разместим в удобном хранилище
@@ -312,7 +312,7 @@ public class MyStrategy {
             EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
             MoveAction m = null;
             AttackAction a = null;
-            if (Ent.rangeUnits.size() < 35) {
+            if (Ent.rangeUnits.size() < 30) {
                 m = new MoveAction(new Vec2Int(14, 14), true, false);
                 a = new AttackAction(
                         null,
@@ -415,8 +415,7 @@ public class MyStrategy {
         Vec2Int minPos = new Vec2Int();
         for (Vec2Int aPos : availablePos) {
             curDistance = getSqrtDistance(aPos, bPos);
-
-            System.out.println("(" +aPos.getX() + ", " + aPos.getY() + ") cur: " + curDistance + " min: " + minDistance);
+            //System.out.println("(" +aPos.getX() + ", " + aPos.getY() + ") cur: " + curDistance + " min: " + minDistance);
             if (minDistance > curDistance) {
                 minDistance = curDistance;
                 minPos = aPos;
