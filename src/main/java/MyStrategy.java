@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 public class MyStrategy {
 
     Integer myId;
-
+    static boolean isStart = true;
 
     private static Map<Integer, Limits> limits = new HashMap<Integer, Limits>();
 
@@ -312,7 +312,7 @@ public class MyStrategy {
             EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
             MoveAction m = null;
             AttackAction a = null;
-            if (Ent.rangeUnits.size() < 30) {
+            if (Ent.rangeUnits.size() < (isStart ? 30: 15)) {
                 m = new MoveAction(new Vec2Int(17, 17), true, false);
                 a = new AttackAction(
                         null,
@@ -328,6 +328,7 @@ public class MyStrategy {
                         t.getId(),
                         null
                 );
+                isStart = false;
             } else {
                 m = new MoveAction(new Vec2Int(playerView.getMapSize() / 2 - 1, playerView.getMapSize() / 2 - 1), true, false);
                 a = new AttackAction(
