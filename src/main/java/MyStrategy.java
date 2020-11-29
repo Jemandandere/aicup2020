@@ -313,7 +313,7 @@ public class MyStrategy {
             MoveAction m = null;
             AttackAction a = null;
             if (Ent.rangeUnits.size() < 30) {
-                m = new MoveAction(new Vec2Int(14, 14), true, false);
+                m = new MoveAction(new Vec2Int(17, 17), true, false);
                 a = new AttackAction(
                         null,
                         new AutoAttack(
@@ -373,8 +373,8 @@ public class MyStrategy {
                 b = new BuildAction(
                     entityType,
                     new Vec2Int(
-                        entity.getPosition().getX(),
-                        entity.getPosition().getY() + entityProperties.getSize()
+                        entity.getPosition().getX() + (entity.getEntityType() == EntityType.BUILDER_BASE ? -1 : entityProperties.getSize()),
+                            entity.getPosition().getY()
                     )
                 );
             }
