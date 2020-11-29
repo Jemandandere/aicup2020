@@ -9,6 +9,7 @@ public class MyStrategy {
     static boolean isStart = true;
 
     private static Map<Integer, Limits> limits = new HashMap<Integer, Limits>();
+    private static Map<Integer, Integer> craftUnitLimits = new HashMap<Integer, Integer>();
 
     private class Limits {
         private Integer builderLimit;
@@ -36,16 +37,17 @@ public class MyStrategy {
     }
 
     private static List<Buildings> buildQueue = new ArrayList<>();
-    private static Buildings toBuild;
-    private static Integer countBuildsPrev = 0;
+    private static Map<Integer, Buildings> buildTasks = new HashMap<>();
 
     private static class Buildings {
         private Vec2Int pos;
         private EntityType type;
+        private Entity builded;
 
         public Buildings(Vec2Int pos, EntityType type) {
             this.pos = pos;
             this.type = type;
+            this.builded = null;
         }
 
         public Vec2Int getPos() {
@@ -55,14 +57,22 @@ public class MyStrategy {
         public EntityType getType() {
             return type;
         }
+
+        public Entity getBuilded() {
+            return builded;
+        }
+
+        public void setBuilded(Entity builded) {
+            this.builded = builded;
+        }
     }
 
     static {
-        buildQueue.add(new Buildings(new Vec2Int(1, 9), EntityType.HOUSE));
-        buildQueue.add(new Buildings(new Vec2Int(1, 5), EntityType.HOUSE));
         buildQueue.add(new Buildings(new Vec2Int(1, 1), EntityType.HOUSE));
         buildQueue.add(new Buildings(new Vec2Int(5, 1), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(1, 5), EntityType.HOUSE));
         buildQueue.add(new Buildings(new Vec2Int(9, 1), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(1, 9), EntityType.HOUSE));
 
         buildQueue.add(new Buildings(new Vec2Int(11, 6), EntityType.HOUSE));
 
@@ -72,23 +82,21 @@ public class MyStrategy {
         buildQueue.add(new Buildings(new Vec2Int(21, 5), EntityType.HOUSE));
         buildQueue.add(new Buildings(new Vec2Int(21, 9), EntityType.HOUSE));
 
-        buildQueue.add(new Buildings(new Vec2Int(17, 11), EntityType.HOUSE));
-        buildQueue.add(new Buildings(new Vec2Int(13, 11), EntityType.HOUSE));
-        buildQueue.add(new Buildings(new Vec2Int(9, 11), EntityType.HOUSE));
         buildQueue.add(new Buildings(new Vec2Int(5, 11), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(9, 11), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(13, 11), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(17, 11), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(21, 13), EntityType.HOUSE));
 
-        buildQueue.add(new Buildings(new Vec2Int(0, 15), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(3, 15), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(6, 15), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(9, 15), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(12, 15), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(18, 15), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(21, 14), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(24, 13), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(25, 10), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(25, 7), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(25, 4), EntityType.TURRET));
-        buildQueue.add(new Buildings(new Vec2Int(25, 1), EntityType.TURRET));
+        buildQueue.add(new Buildings(new Vec2Int(25, 1), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(25, 5), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(25, 9), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(25, 13), EntityType.HOUSE));
+
+        buildQueue.add(new Buildings(new Vec2Int(29, 1), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(29, 5), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(29, 9), EntityType.HOUSE));
+        buildQueue.add(new Buildings(new Vec2Int(29, 13), EntityType.HOUSE));
 
     }
 
@@ -98,12 +106,11 @@ public class MyStrategy {
 
         static HashMap<Integer, Entity> totalUnits = new HashMap<>();
         static HashMap<Integer, Entity> builderUnits = new HashMap<>();
-        static Entity builderUnitHouse = null;
+        static HashMap<Integer, Entity> craftUnits = new HashMap<>(); // Те же билдеры, просто им повезло в жизни
         static HashMap<Integer, Entity> meleeUnits = new HashMap<>();
         static HashMap<Integer, Entity> rangeUnits = new HashMap<>();
 
         static HashMap<Integer, Entity> totalBuildings = new HashMap<>();
-        private static int countBuilds = 0; // Сколько зданий было построено, изначальные тоже считаются
         static HashMap<Integer, Entity> totalBases = new HashMap<>();
         static HashMap<Integer, Entity> builderBases = new HashMap<>();
         static HashMap<Integer, Entity> meleeBases = new HashMap<>();
@@ -120,10 +127,6 @@ public class MyStrategy {
             for (Entity newEntity : newEntities) {
                 if (oldEntities.contains(newEntity.getId())) {
                     oldEntities.remove(newEntity.getId());
-                } else {
-                    if (isBuildings(newEntity)) {
-                        countBuilds += 1;
-                    }
                 }
                 add(newEntity);
             }
@@ -199,6 +202,7 @@ public class MyStrategy {
             totalEntities.remove(i);
             totalUnits.remove(i);
             builderUnits.remove(i);
+            craftUnits.remove(i);
             meleeUnits.remove(i);
             rangeUnits.remove(i);
             totalBases.remove(i);
@@ -208,13 +212,11 @@ public class MyStrategy {
             totalHouses.remove(i);
             totalTurrels.remove(i);
             totalWalls.remove(i);
-            if (builderUnitHouse != null && builderUnitHouse.getId() == i) {
-                builderUnitHouse = null;
-            }
         }
     }
 
     public Action getAction(PlayerView playerView, DebugInterface debugInterface) {
+        System.out.println("-----" + playerView.getCurrentTick() + "-----");
         HashMap<Integer, EntityAction> actions = new HashMap<>();
         // Инициализируемся
         if (playerView.getCurrentTick() == 0) {
@@ -223,14 +225,14 @@ public class MyStrategy {
             limits.put(0, new Limits(0,0,0));
             limits.put(5, new Limits(5,0,0));
             limits.put(10, new Limits(10,0,0));
-            limits.put(15, new Limits(14,0,1));
-            limits.put(20, new Limits(19,0,1));
-            limits.put(25, new Limits(24,0,1));
-            limits.put(30, new Limits(25,0,5));
-            limits.put(35, new Limits(25,0,10));
+            limits.put(15, new Limits(10,0,5));
+            limits.put(20, new Limits(15,0,5));
+            limits.put(25, new Limits(15,0,10));
+            limits.put(30, new Limits(20,0,10));
+            limits.put(35, new Limits(20,0,15));
             limits.put(40, new Limits(25,0,15));
             limits.put(45, new Limits(25,0,20));
-            limits.put(50, new Limits(25,0,25));
+            limits.put(50, new Limits(30,0,20));
             limits.put(55, new Limits(30,0,25));
             limits.put(60, new Limits(35,0,25));
             limits.put(65, new Limits(35,0,30));
@@ -240,7 +242,71 @@ public class MyStrategy {
             limits.put(85, new Limits(35,0,50));
             limits.put(90, new Limits(35,0,55));
             limits.put(95, new Limits(35,0,60));
-            limits.put(100, new Limits(35,0,65));
+            limits.put(100, new Limits(40,0,60));
+            limits.put(105, new Limits(40,0,65));
+            limits.put(110, new Limits(40,0,70));
+            limits.put(115, new Limits(40,0,75));
+            limits.put(120, new Limits(40,0,80));
+            limits.put(125, new Limits(40,0,85));
+            limits.put(130, new Limits(40,0,90));
+            limits.put(135, new Limits(40,0,95));
+            limits.put(140, new Limits(40,0,100));
+            limits.put(145, new Limits(40,0,105));
+            limits.put(150, new Limits(40,0,110));
+            limits.put(155, new Limits(40,0,115));
+            limits.put(160, new Limits(40,0,120));
+            limits.put(165, new Limits(40,0,125));
+            limits.put(170, new Limits(40,0,130));
+            limits.put(175, new Limits(40,0,135));
+            limits.put(180, new Limits(40,0,140));
+            limits.put(185, new Limits(40,0,145));
+            limits.put(190, new Limits(40,0,150));
+            limits.put(195, new Limits(40,0,155));
+            limits.put(200, new Limits(40,0,160));
+
+
+
+            craftUnitLimits.put(0, 0);
+            craftUnitLimits.put(1, 0);
+            craftUnitLimits.put(2, 0);
+            craftUnitLimits.put(3, 0);
+            craftUnitLimits.put(4, 0);
+            craftUnitLimits.put(5, 0);
+            craftUnitLimits.put(6, 0);
+            craftUnitLimits.put(7, 0);
+            craftUnitLimits.put(8, 0);
+            craftUnitLimits.put(9, 0);
+            craftUnitLimits.put(10, 1);
+            craftUnitLimits.put(11, 1);
+            craftUnitLimits.put(12, 1);
+            craftUnitLimits.put(13, 1);
+            craftUnitLimits.put(14, 1);
+            craftUnitLimits.put(15, 2);
+            craftUnitLimits.put(16, 2);
+            craftUnitLimits.put(17, 2);
+            craftUnitLimits.put(18, 2);
+            craftUnitLimits.put(19, 2);
+            craftUnitLimits.put(20, 3);
+            craftUnitLimits.put(21, 3);
+            craftUnitLimits.put(22, 3);
+            craftUnitLimits.put(23, 3);
+            craftUnitLimits.put(24, 3);
+            craftUnitLimits.put(25, 4);
+            craftUnitLimits.put(26, 4);
+            craftUnitLimits.put(27, 4);
+            craftUnitLimits.put(28, 4);
+            craftUnitLimits.put(29, 4);
+            craftUnitLimits.put(30, 5);
+            craftUnitLimits.put(31, 5);
+            craftUnitLimits.put(32, 5);
+            craftUnitLimits.put(33, 5);
+            craftUnitLimits.put(34, 5);
+            craftUnitLimits.put(35, 5);
+            craftUnitLimits.put(36, 5);
+            craftUnitLimits.put(37, 5);
+            craftUnitLimits.put(38, 5);
+            craftUnitLimits.put(39, 5);
+            craftUnitLimits.put(40, 5);
         }
 
         // Все сущности разместим в удобном хранилище
@@ -251,41 +317,47 @@ public class MyStrategy {
             currentLimit += playerView.getEntityProperties().get(entity.getEntityType()).getPopulationProvide();
         }
 
-        int builders_count = 0;
-        // Рабочие вседа добывают, но один строит
+        // Рабочие вседа добывают, но будет пачка, которая строит
         for (Integer i : Ent.builderUnits.keySet()) {
             Entity entity = Ent.builderUnits.get(i);
-            builders_count += 1;
             // Если это наш особенный
-
-            if ((buildQueue.size() > 0) & (builders_count == limits.get(currentLimit).getLimit(EntityType.BUILDER_UNIT)) & (Ent.builderUnitHouse == null)) {
-                Ent.builderUnitHouse = entity;
+            if (Ent.craftUnits.size() < craftUnitLimits.get(Ent.builderUnits.size())) {
+                Ent.craftUnits.put(entity.getId(), entity);
             }
+
             MoveAction m = null;
             AttackAction a = null;
             BuildAction b = null;
             RepairAction r = null;
-            if ((Ent.builderUnitHouse != null) && (Ent.builderUnitHouse.getId() == entity.getId())) {
-                // Перечитаем строителя, иначе он считает всё от начально точки и в поисках оптимальной точки строительства нет смысла
-                Ent.builderUnitHouse = entity;
 
-                Set<Integer> toActivate = new HashSet<>();
-                for (Entity e : Ent.totalBuildings.values()) {
-                    if (!e.isActive()) {
-                        toActivate.add(e.getId());
+            if (Ent.craftUnits.containsKey(entity.getId())) {
+                // Перечитаем строителя, иначе он запоминает состояние на момен появления (координаты тоже) и в поисках ближайшей точки строительства нет смысла
+                Ent.craftUnits.put(entity.getId(), entity);
+                if (buildQueue.iterator().hasNext()) {
+                    if (buildTasks.get(entity.getId()) == null) {
+                        buildTasks.put(entity.getId(), buildQueue.remove(0));
                     }
                 }
-                if (toActivate.iterator().hasNext()){
-                    r = new RepairAction(toActivate.iterator().next());
-                    toBuild = null;
-                } else if ((buildQueue.iterator().hasNext()) | (toBuild != null)) {
-                    if (countBuildsPrev < Ent.countBuilds) {
-                        countBuildsPrev = Ent.countBuilds;
-                        toBuild = buildQueue.remove(0);
+                if (buildTasks.get(entity.getId()) != null) {
+                    if (buildTasks.get(entity.getId()).getBuilded() == null) {
+                        for (Entity building : Ent.totalBuildings.values()) {
+                            if (equalVec(building.getPosition(), buildTasks.get(entity.getId()).getPos())) {
+                                // Считаем что такое здание было построено
+                                buildTasks.get(entity.getId()).setBuilded(building);
+                            }
+                        }
+                        m = new MoveAction(getMinimalPos(entity.getPosition(), getAvailablePos(buildTasks.get(entity.getId()), playerView)), true, true);
+                        b = new BuildAction(buildTasks.get(entity.getId()).getType(), buildTasks.get(entity.getId()).getPos());
                     }
-                    m = new MoveAction(getMinimalPos(Ent.builderUnitHouse.getPosition(), getAvailablePos(toBuild, playerView)), true, false);
-                    b = new BuildAction(toBuild.getType(), toBuild.getPos());
+                    if (buildTasks.get(entity.getId()).getBuilded() != null) {
+                        if (Ent.totalBuildings.get(buildTasks.get(entity.getId()).getBuilded().getId()).isActive()) {
+                            buildTasks.remove(entity.getId());
+                        } else {
+                            r = new RepairAction(buildTasks.get(entity.getId()).getBuilded().getId());
+                        }
+                    }
                 } else {
+                    m = new MoveAction(new Vec2Int(playerView.getMapSize() / 2 - 1, playerView.getMapSize() / 2 - 1), true, false);
                     a = new AttackAction(
                             null,
                             new AutoAttack(
@@ -295,6 +367,7 @@ public class MyStrategy {
                     );
                 }
             } else {
+                m = new MoveAction(new Vec2Int(playerView.getMapSize() / 2 - 1, playerView.getMapSize() / 2 - 1), true, false);
                 a = new AttackAction(
                         null,
                         new AutoAttack(
@@ -312,7 +385,7 @@ public class MyStrategy {
             EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
             MoveAction m = null;
             AttackAction a = null;
-            if (Ent.rangeUnits.size() < (isStart ? 30: 15)) {
+            if (Ent.rangeUnits.size() < 15) {
                 m = new MoveAction(new Vec2Int(17, 17), true, false);
                 a = new AttackAction(
                         null,
@@ -374,8 +447,8 @@ public class MyStrategy {
                 b = new BuildAction(
                     entityType,
                     new Vec2Int(
-                        entity.getPosition().getX() + (entity.getEntityType() == EntityType.BUILDER_BASE ? -1 : entityProperties.getSize()),
-                            entity.getPosition().getY()
+                        entity.getPosition().getX() + (((entity.getEntityType() == EntityType.BUILDER_BASE) & (isStart)) ? -1 : entityProperties.getSize()),
+                        entity.getPosition().getY() + (isStart ? 0 : entityProperties.getSize() - 1)
                     )
                 );
             }
@@ -402,8 +475,11 @@ public class MyStrategy {
             EntityProperties entityProperties = playerView.getEntityProperties().get(entity.getEntityType());
             actions.put(i, new EntityAction(null, null, null, null));
         }
-        //System.out.println("---------------------------------");
         return new Action(actions);
+    }
+
+    private boolean equalVec(Vec2Int a, Vec2Int b) {
+        return (a.getX() == b.getX() && a.getY() == b.getY());
     }
 
     private double getSqrtDistance(Vec2Int a, Vec2Int b) {
@@ -416,13 +492,11 @@ public class MyStrategy {
         Vec2Int minPos = new Vec2Int();
         for (Vec2Int aPos : availablePos) {
             curDistance = getSqrtDistance(aPos, bPos);
-            //System.out.println("(" +aPos.getX() + ", " + aPos.getY() + ") cur: " + curDistance + " min: " + minDistance);
             if (minDistance > curDistance) {
                 minDistance = curDistance;
                 minPos = aPos;
             }
         }
-        //System.out.println(minPos.getX() + " " + minPos.getY());
         return minPos;
     }
 
@@ -450,10 +524,7 @@ public class MyStrategy {
                 availablePos.add(new Vec2Int(maxX, i));
             }
         }
-        // TODO Отсеевать значения точек, на которых уже построены здания
-        /*for (Vec2Int vec2Int : availablePos) {
-            System.out.println(vec2Int.getX() + " " + vec2Int.getY());
-        }*/
+        // TODO Отсеевать значения точек, на которых уже построены здания. Вероятнее всего не понадобится
         return availablePos;
     }
 
