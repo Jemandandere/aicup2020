@@ -8,9 +8,39 @@ public class MyStrategy {
     Integer myId;
     static boolean isStart = true;
 
+    private static GameMap map;
+
     private static Map<Integer, Limits> limits = new HashMap<Integer, Limits>();
     private static Map<Integer, Integer> craftUnitLimits = new HashMap<Integer, Integer>();
 
+    private class GameMap {
+        boolean[][] map;
+
+
+        public GameMap() {
+            this.map = new boolean[80][80];
+        }
+
+        public void reset() {
+            for (boolean[] row : map) {
+                for (boolean cell : row) {
+                    cell = false;
+                }
+            }
+        }
+
+        public void print() {
+            for (boolean[] row : map) {
+                for (boolean cell : row) {
+                    System.out.println(cell ? 1 : 0);
+                }
+            }
+        }
+
+        public void refresh(Entity[] entities) {
+            // TODO Написать обновление карты
+        }
+    }
     private class Limits {
         private Integer builderLimit;
         private Integer meleeLimit;
@@ -97,7 +127,7 @@ public class MyStrategy {
         buildQueue.add(new Buildings(new Vec2Int(29, 5), EntityType.HOUSE));
         buildQueue.add(new Buildings(new Vec2Int(29, 9), EntityType.HOUSE));
         buildQueue.add(new Buildings(new Vec2Int(29, 13), EntityType.HOUSE));
-
+        // TODO Нужно организовать проверку по доступным точкам для строительства, мол, если там можем построить, что бы строило, что бы не ждать
     }
 
     public static class Ent {
@@ -219,8 +249,10 @@ public class MyStrategy {
         System.out.println("-----" + playerView.getCurrentTick() + "-----");
         HashMap<Integer, EntityAction> actions = new HashMap<>();
         // Инициализируемся
+
         if (playerView.getCurrentTick() == 0) {
             myId = playerView.getMyId();
+            map = new GameMap();
             // Зададим лимиты
             limits.put(0, new Limits(0,0,0));
             limits.put(5, new Limits(5,0,0));
@@ -308,6 +340,7 @@ public class MyStrategy {
             craftUnitLimits.put(39, 5);
             craftUnitLimits.put(40, 5);
         }
+        map.refresh(playerView.getEntities());
 
         // Все сущности разместим в удобном хранилище
         Ent.update(Arrays.stream(playerView.getEntities()).filter(e -> myId.equals(e.getPlayerId())).collect(Collectors.toSet()));
@@ -351,7 +384,7 @@ public class MyStrategy {
                     }
                     if (buildTasks.get(entity.getId()).getBuilded() != null) {
                         if (Ent.totalBuildings.get(buildTasks.get(entity.getId()).getBuilded().getId()).isActive()) {
-                            buildTasks.remove(entity.getId());
+                            buildTasks.remove(entity.getId()); // TODO Если юнита убьют, задание пропадёт? Нужно поправить.
                         } else {
                             r = new RepairAction(buildTasks.get(entity.getId()).getBuilded().getId());
                         }
@@ -480,6 +513,11 @@ public class MyStrategy {
 
     private boolean equalVec(Vec2Int a, Vec2Int b) {
         return (a.getX() == b.getX() && a.getY() == b.getY());
+    }
+
+    private boolean intersectionRect(Vec2Int a0, Vec2Int a1, Vec2Int b0, Vec2Int b1) {
+        return (Math.max(a0.getX(), b0.getX()) - Math.min(a1.getX(), b1.getX()) < 0) &&
+                (Math.max(a0.getY(), b0.getY()) - Math.min(a1.getY(), b1.getY()) < 0);
     }
 
     private double getSqrtDistance(Vec2Int a, Vec2Int b) {
