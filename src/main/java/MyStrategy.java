@@ -1,5 +1,4 @@
 import model.*;
-
 import java.util.*;
 
 class Tools{
@@ -30,14 +29,13 @@ class Tools{
         return minPos;
     }
 
-    public static List<Vec2Int> getAvailablePos(Building toBuild, PlayerView playerView) {
+    public static List<Vec2Int> getPositionAroundBase(Vec2Int position, Integer size) {
         List<Vec2Int> availablePos = new ArrayList<>();
-        int buildSize = playerView.getEntityProperties().get(toBuild.getType()).getSize();
-        int mapSize = playerView.getMapSize();
-        int maxX = toBuild.getPos().getX() + buildSize;
-        int maxY = toBuild.getPos().getY() + buildSize;
-        int minX = toBuild.getPos().getX() - 1 ;
-        int minY = toBuild.getPos().getY() -1 ;
+        int mapSize = 80; // TODO Это надо перенести. Я про процедуру в целом.
+        int maxX = position.getX() + size;
+        int maxY = position.getY() + size;
+        int minX = position.getX() - 1 ;
+        int minY = position.getY() -1 ;
         for (int i = minX + 1; i <= maxX - 1; i++) {
             if (0 <= i & i < mapSize & 0 <= minY & minY < mapSize) {
                 availablePos.add(new Vec2Int(i, minY));
@@ -56,595 +54,6 @@ class Tools{
         }
         // TODO Отсеевать значения точек, на которых уже построены здания. Вероятнее всего не понадобится
         return availablePos;
-    }
-}
-
-class GameMap {
-    private boolean[][] map;
-
-
-    public GameMap() {
-        this(80);
-    }
-
-    public GameMap(Integer size) {
-        this(size, size);
-    }
-
-    public GameMap(Integer width, Integer heigth) {
-        this.map = new boolean[width][heigth];
-        // TODO Проверить правильность размещения координат, по идее должно быть так.
-    }
-
-    public void clear() {
-        for (boolean[] row : map) {
-            for (boolean cell : row) {
-                cell = false;
-            }
-        }
-    }
-
-    public void print() {
-        for (boolean[] row : map) {
-            for (boolean cell : row) {
-                System.out.println(cell ? 1 : 0);
-            }
-        }
-    }
-
-    public void refresh(Entity[] entities, Map<EntityType, EntityProperties> properties) {
-        // TODO Написать обновление карты
-    }
-}
-
-class Limits {
-    private Integer builderLimit;
-    private Integer meleeLimit;
-    private Integer rangeLimit;
-
-    public Limits(Integer builderLimit, Integer meleeLimit, Integer rangeLimit) {
-        this.builderLimit = builderLimit;
-        this.meleeLimit = meleeLimit;
-        this.rangeLimit = rangeLimit;
-    }
-
-    public Integer getLimit(EntityType entityType) {
-        switch (entityType) {
-            case BUILDER_UNIT:
-                return builderLimit;
-            case MELEE_UNIT:
-                return meleeLimit;
-            case RANGED_UNIT:
-                return rangeLimit;
-            default:
-                return 0;
-        }
-    }
-}
-
-enum EntityOwner {
-    ALL(-1),
-    MY(0),
-    NEW(1);
-    public int tag;
-    EntityOwner(int tag) {
-        this.tag = tag;
-    }
-}
-
-class EntityManager {
-    private PlayerView playerView;
-    private Map<Integer, Entity> entity;
-
-    private MoveAction moveAction;
-    private BuildAction buildAction;
-        private boolean build;
-        private EntityType buildEntityType;
-        private Vec2Int buildPosition;
-    private AttackAction attackAction;
-    private RepairAction repairAction;
-
-    public EntityManager(Map<Integer, Entity> entity, PlayerView playerView) {
-        this.playerView = playerView;
-        this.entity = entity;
-        this.moveAction = null;
-        this.buildAction = null;
-            build = false;
-            buildEntityType = null;
-            buildPosition = null;
-        this.attackAction = null;
-        this.repairAction = null;
-    }
-
-    public EntityManager filter(Set<Integer> filterIds) {
-        return filter(filterIds, true);
-    }
-
-    public EntityManager filter(Set<Integer> filterIds, boolean remove) {
-        if (remove) {
-            for (Integer filterId : filterIds) {
-                entity.remove(filterId);
-            }
-        } else {
-            Map<Integer, Entity> filtered = new HashMap<>();
-            for (Integer filterId : filterIds) {
-                filtered.put(entity.get(filterId).getId(), entity.get(filterId));
-            }
-            entity = filtered;
-        }
-        return this;
-    }
-
-    public Integer count() {
-        return entity.size();
-    }
-
-    // По умолчанию ломимся до хаты
-    public EntityManager move() {
-        return move(5, 5);
-    }
-    // Можем идти как по координатам
-    public EntityManager move(Integer x, Integer y) {
-        return move(new Vec2Int(x, y));
-    }
-    // Так и в точку
-    public EntityManager move(Vec2Int target) {
-        return move(target, true, false);
-    }
-    // Даже с особенными параметрами
-
-    public EntityManager move(Vec2Int target, boolean findClosestPosition, boolean breakThrough) {
-        this.moveAction = new MoveAction(target, findClosestPosition, breakThrough);
-        return this;
-    }
-    // Месить всю карту
-    public EntityManager attack() {
-        return attack(new EntityType[]{});
-    }
-    // Для рабочих
-    public EntityManager attack(EntityType[] validTargets) {
-        return attack(new AutoAttack(1000, validTargets)); //TODO Вот тут плохо реализован рэнж
-    }
-    // Для целевой атаки
-    public EntityManager attack(Integer target) {
-        return attack(target, null);
-    }
-    // Для особенной автоатаки
-    public EntityManager attack(AutoAttack autoAttack) {
-        return attack(null, autoAttack);
-    }
-    // А это просто объединяющая
-
-    public EntityManager attack(Integer target, AutoAttack autoAttack) {
-        this.attackAction = new AttackAction(target, autoAttack);
-        return this;
-    }
-    // Эти для зданий
-    public EntityManager build() {
-        return build(null);
-    }
-    public EntityManager build(Vec2Int position) {
-        return build(null, position);
-    }
-    // Это для строителей
-
-    public EntityManager build(EntityType entityType, Vec2Int position) {
-        this.build = true;
-        this.buildEntityType = entityType;
-        this.buildPosition = position;
-        return this;
-    }
-
-    // Сделать починку
-
-    public Map<Integer, EntityAction> make(){
-        Map<Integer, EntityAction> actions = new HashMap<>();
-        for (Map.Entry<Integer, Entity> entry : entity.entrySet()) {
-            // TODO To, что сделано с билдом нужно сделать для остальных т.к. для атаки есть entityProperties.getSightRange()
-            if (build) {
-                if (buildEntityType == null) {
-                    buildEntityType = playerView.getEntityProperties().get(entry.getValue().getEntityType()).getBuild().getOptions()[0];
-                    //Integer currentUnits = Math.toIntExact(Arrays.stream(playerView.getEntities()).filter(e -> gm.getId().equals(e.getPlayerId()) & e.getEntityType() == entityType).count());
-                    //if ((currentUnits + 1) * playerView.getEntityProperties().get(entityType).getPopulationUse() <= limits.get(currentLimit).getLimit(entityType)) {
-                }
-                if (buildPosition == null) {
-                    buildPosition =  new Vec2Int(
-                            entry.getValue().getPosition().getX() + playerView.getEntityProperties().get(entry.getValue().getEntityType()).getSize(),
-                            entry.getValue().getPosition().getY() + playerView.getEntityProperties().get(entry.getValue().getEntityType()).getSize() - 1
-                    );
-                }
-                buildAction = new BuildAction(buildEntityType, buildPosition);
-            }
-            actions.put(entry.getKey(), new EntityAction(moveAction, buildAction, attackAction, repairAction));
-        }
-        return actions;
-    }
-
-    public Map<Integer, Entity> getEntity() {
-        return entity;
-    }
-}
-
-class EntityStorage {
-    PlayerView playerView;
-
-    private Map<Integer, Entity> entities;
-    private Set<Integer> oldEntities;
-
-    private Map<Integer, Entity> allBuildUnit;
-    private Map<Integer, Entity> allMeleeUnit;
-    private Map<Integer, Entity> allRangeUnit;
-    private Map<Integer, Entity> allBuildBase;
-    private Map<Integer, Entity> allMeleeBase;
-    private Map<Integer, Entity> allRangeBase;
-    private Map<Integer, Entity> allHouse;
-    private Map<Integer, Entity> allTurret;
-    private Map<Integer, Entity> allWall;
-    private Map<Integer, Entity> allResource;
-
-    private Map<Integer, Entity> myBuildUnit;
-    private Map<Integer, Entity> myMeleeUnit;
-    private Map<Integer, Entity> myRangeUnit;
-    private Map<Integer, Entity> myBuildBase;
-    private Map<Integer, Entity> myMeleeBase;
-    private Map<Integer, Entity> myRangeBase;
-    private Map<Integer, Entity> myHouse;
-    private Map<Integer, Entity> myTurret;
-    private Map<Integer, Entity> myWall;
-
-    private Map<Integer, Entity> newBuildUnit;
-    private Map<Integer, Entity> newMeleeUnit;
-    private Map<Integer, Entity> newRangeUnit;
-    private Map<Integer, Entity> newBuildBase;
-    private Map<Integer, Entity> newMeleeBase;
-    private Map<Integer, Entity> newRangeBase;
-    private Map<Integer, Entity> newHouse;
-    private Map<Integer, Entity> newTurret;
-    private Map<Integer, Entity> newWall;
-
-
-    public EntityStorage(PlayerView playerView) {
-        this.playerView = playerView;
-
-        entities = new HashMap<>();
-        oldEntities = new HashSet<>();
-
-        allBuildUnit = new HashMap<>();
-        allMeleeUnit = new HashMap<>();
-        allRangeUnit = new HashMap<>();
-        allBuildBase = new HashMap<>();
-        allMeleeBase = new HashMap<>();
-        allRangeBase = new HashMap<>();
-        allHouse = new HashMap<>();
-        allTurret = new HashMap<>();
-        allWall = new HashMap<>();
-        allResource = new HashMap<>();
-
-        myBuildUnit = new HashMap<>();
-        myMeleeUnit = new HashMap<>();
-        myRangeUnit = new HashMap<>();
-        myBuildBase = new HashMap<>();
-        myMeleeBase = new HashMap<>();
-        myRangeBase = new HashMap<>();
-        myHouse = new HashMap<>();
-        myTurret = new HashMap<>();
-        myWall = new HashMap<>();
-
-        newBuildUnit = new HashMap<>();
-        newMeleeUnit = new HashMap<>();
-        newRangeUnit = new HashMap<>();
-        newBuildBase = new HashMap<>();
-        newMeleeBase = new HashMap<>();
-        newRangeBase = new HashMap<>();
-        newHouse = new HashMap<>();
-        newTurret = new HashMap<>();
-        newWall = new HashMap<>();
-    }
-
-    public void update(Entity[] entities, Map<EntityType, EntityProperties> properties) {
-        oldEntities = this.entities.keySet();
-        this.entities = Arrays.stream(entities).collect(HashMap::new, (m, i) -> m.put(i.getId(), i), Map::putAll);
-
-        // Список свежих юнитов всегда будет очищаться, что бы приказы не отсылались по несколько раз
-        newMapNullable();
-
-        // Если нашли значение среди старых, то просто исключаем из списка на удаление
-        // Всегда добавляем в мапы, что бы у нас были актуальные свойства entity, а не просто список
-        for (Entity newEntity : entities) {
-            if (oldEntities.contains(newEntity.getId())) {
-                oldEntities.remove(newEntity.getId());
-            } else {
-                add(newEntity, true);
-            }
-            add(newEntity);
-        }
-
-        // Всё что не нашлось среди новых значений считаем что было убито и исключаем из мап.
-        for (Integer oldEntity : oldEntities) {
-            remove(oldEntity);
-        }
-    }
-
-    private void add(Entity e){
-        add(e, false);
-    }
-
-    private void add(Entity e, boolean isNew) {
-        switch (e.getEntityType()) {
-            case BUILDER_UNIT -> {
-                allBuildUnit.put(e.getId(), e);
-                if (e.getPlayerId() == playerView.getMyId()) {
-                    myBuildUnit.put(e.getId(), e);
-                    if (isNew) {
-                        newBuildUnit.put(e.getId(), e);
-                    }
-                }
-            }
-            case MELEE_UNIT -> {
-                allMeleeUnit.put(e.getId(), e);
-                if (e.getPlayerId() == playerView.getMyId()) {
-                    myMeleeUnit.put(e.getId(), e);
-                    if (isNew) {
-                        newMeleeUnit.put(e.getId(), e);
-                    }
-                }
-                break;
-            }
-            case RANGED_UNIT -> {
-                allRangeUnit.put(e.getId(), e);
-                if (e.getPlayerId() == playerView.getMyId()) {
-                    myRangeUnit.put(e.getId(), e);
-                    if (isNew) {
-                        newRangeUnit.put(e.getId(), e);
-                    }
-                }
-                break;
-            }
-            case BUILDER_BASE -> {
-                allBuildBase.put(e.getId(), e);
-                if (e.getPlayerId() == playerView.getMyId()) {
-                    myBuildBase.put(e.getId(), e);
-                    if (isNew) {
-                        newBuildBase.put(e.getId(), e);
-                    }
-                }
-                break;
-            }
-            case MELEE_BASE -> {
-                allMeleeBase.put(e.getId(), e);
-                if (e.getPlayerId() == playerView.getMyId()) {
-                    myMeleeBase.put(e.getId(), e);
-                    if (isNew) {
-                        newMeleeBase.put(e.getId(), e);
-                    }
-                }
-                break;
-            }
-            case RANGED_BASE -> {
-                allRangeBase.put(e.getId(), e);
-                if (e.getPlayerId() == playerView.getMyId()) {
-                    myRangeBase.put(e.getId(), e);
-                    if (isNew) {
-                        newRangeBase.put(e.getId(), e);
-                    }
-                }
-                break;
-            }
-            case HOUSE -> {
-                allHouse.put(e.getId(), e);
-                if (e.getPlayerId() == playerView.getMyId()) {
-                    myHouse.put(e.getId(), e);
-                    if (isNew) {
-                        newHouse.put(e.getId(), e);
-                    }
-                }
-                break;
-            }
-            case TURRET -> {
-                allTurret.put(e.getId(), e);
-                if (e.getPlayerId() == playerView.getMyId()) {
-                    myTurret.put(e.getId(), e);
-                    if (isNew) {
-                        newTurret.put(e.getId(), e);
-                    }
-                }
-                break;
-            }
-            case WALL -> {
-                allWall.put(e.getId(), e);
-                if (e.getPlayerId() == playerView.getMyId()) {
-                    myWall.put(e.getId(), e);
-                    if (isNew) {
-                        newWall.put(e.getId(), e);
-                    }
-                }
-                break;
-            }
-            case RESOURCE -> {
-                allResource.put(e.getId(), e);
-            }
-        }
-        // TODO Доделать для всех юнитов
-    }
-
-    private void remove(Integer i) {
-        allBuildUnit.remove(i);
-        allMeleeUnit.remove(i);
-        allRangeUnit.remove(i);
-        allBuildBase.remove(i);
-        allMeleeBase.remove(i);
-        allRangeBase.remove(i);
-        allHouse.remove(i);
-        allTurret.remove(i);
-        allWall.remove(i);
-        allResource.remove(i);
-        myBuildUnit.remove(i);
-        myMeleeUnit.remove(i);
-        myRangeUnit.remove(i);
-        myBuildBase.remove(i);
-        myMeleeBase.remove(i);
-        myRangeBase.remove(i);
-        myHouse.remove(i);
-        myTurret.remove(i);
-        myWall.remove(i);
-    }
-
-    private void newMapNullable() {
-        newBuildUnit.clear();
-        newMeleeUnit.clear();
-        newRangeUnit.clear();
-        newBuildBase.clear();
-        newMeleeBase.clear();
-        newRangeBase.clear();
-        newHouse.clear();
-        newTurret.clear();
-        newWall.clear();
-    }
-
-    private EntityManager getEntityManager(Map<Integer, Entity> entity) {
-        return new EntityManager(entity, playerView);
-    }
-
-    public EntityManager getBuild() {
-        return getBuild(EntityOwner.MY);
-    }
-    public EntityManager getBuild(EntityOwner entityOwner) {
-        return getEntityManager(switch (entityOwner){
-            case ALL -> allBuildUnit;
-            case MY -> myBuildUnit;
-            case NEW -> newBuildUnit;
-        });
-    }
-
-    public EntityManager getMelee() {
-        return getMelee(EntityOwner.MY);
-    }
-    public EntityManager getMelee(EntityOwner entityOwner) {
-        return getEntityManager(switch (entityOwner){
-            case ALL -> allMeleeUnit;
-            case MY -> myMeleeUnit;
-            case NEW -> newMeleeUnit;
-        });
-    }
-
-    public EntityManager getRange() {
-        return getRange(EntityOwner.MY);
-    }
-    public EntityManager getRange(EntityOwner entityOwner) {
-        return getEntityManager(switch (entityOwner){
-            case ALL -> allRangeUnit;
-            case MY -> myRangeUnit;
-            case NEW -> newRangeUnit;
-        });
-    }
-
-    public EntityManager getBuildBase() {
-        return getBuildBase(EntityOwner.MY);
-    }
-    public EntityManager getBuildBase(EntityOwner entityOwner) {
-        return getEntityManager(switch (entityOwner){
-            case ALL -> allBuildBase;
-            case MY -> myBuildBase;
-            case NEW -> newBuildBase;
-        });
-    }
-
-    public EntityManager getMeleeBase() {
-        return getMeleeBase(EntityOwner.MY);
-    }
-    public EntityManager getMeleeBase(EntityOwner entityOwner) {
-        return getEntityManager(switch (entityOwner){
-            case ALL -> allMeleeBase;
-            case MY -> myMeleeBase;
-            case NEW -> newMeleeBase;
-        });
-    }
-
-    public EntityManager getRangeBase() {
-        return getRangeBase(EntityOwner.MY);
-    }
-    public EntityManager getRangeBase(EntityOwner entityOwner) {
-        return getEntityManager(switch (entityOwner){
-            case ALL -> allRangeBase;
-            case MY -> myRangeBase;
-            case NEW -> newRangeBase;
-        });
-    }
-
-    public EntityManager getHouse() {
-        return getHouse(EntityOwner.MY);
-    }
-    public EntityManager getHouse(EntityOwner entityOwner) {
-        return getEntityManager(switch (entityOwner){
-            case ALL -> allHouse;
-            case MY -> myHouse;
-            case NEW -> newHouse;
-        });
-    }
-
-    public EntityManager getTurret() {
-        return getTurret(EntityOwner.MY);
-    }
-    public EntityManager getTurret(EntityOwner entityOwner) {
-        return getEntityManager(switch (entityOwner){
-            case ALL -> allTurret;
-            case MY -> myTurret;
-            case NEW -> newTurret;
-        });
-    }
-
-    public EntityManager getWall() {
-        return getWall(EntityOwner.MY);
-    }
-    public EntityManager getWall(EntityOwner entityOwner) {
-        return getEntityManager(switch (entityOwner){
-            case ALL -> allWall;
-            case MY -> myWall;
-            case NEW -> newWall;
-        });
-    }
-
-    public EntityManager getResource() {
-        return getEntityManager(allResource);
-    }
-
-    public Integer getLimit() {
-        Integer limit = 0;
-        limit += myBuildBase.size() * playerView.getEntityProperties().get(EntityType.BUILDER_BASE).getPopulationProvide();
-        limit += myMeleeBase.size() * playerView.getEntityProperties().get(EntityType.MELEE_BASE).getPopulationProvide();
-        limit += myRangeBase.size() * playerView.getEntityProperties().get(EntityType.RANGED_BASE).getPopulationProvide();
-        limit += myHouse.size() * playerView.getEntityProperties().get(EntityType.HOUSE).getPopulationProvide();
-        return limit;
-    }
-}
-
-class Building {
-    private Integer id;
-    private Vec2Int pos;
-    private EntityType type;
-    private Entity builded;
-
-    public Building(Vec2Int pos, EntityType type) {
-        this.pos = pos;
-        this.type = type;
-        this.builded = null;
-    }
-
-    public Vec2Int getPos() {
-        return pos;
-    }
-
-    public EntityType getType() {
-        return type;
-    }
-
-    public Entity getBuilded() {
-        return builded;
-    }
-
-    public void setBuilded(Entity builded) {
-        this.id = builded.getId();
-        this.builded = builded;
     }
 }
 
@@ -767,15 +176,15 @@ class GameManager {
     }
 
     public void basicStrategy () {
-        // TODO Добавить определение раунда игры
         // Обнуляем старые действия
         actions.clear();
+        // TODO Добавить определение раунда игры
         // Рабочие постоянно добывают ресурсы, по всей карте
         putActions(getEntityStorage().getBuild().attack(new EntityType[]{EntityType.RESOURCE}).make());
         // Милишник на данный момент времени бесполезен, поэтому пойдет на базу к вражине
-        putActions(getEntityStorage().getMelee().move(75, 5).make());
+        putActions(getEntityStorage().getMelee().move(75, 5).attack().make());
         // Рэнжи группируются
-        putActions(getEntityStorage().getRange().move(14, 14).make());
+        putActions(getEntityStorage().getRange().move(14, 14).attack().make());
 
         // Базы строят если могут
         if (canSpawnBuildUnit()) {
@@ -802,15 +211,713 @@ class GameManager {
     }
 }
 
-public class MyStrategy {
+class GameMap {
+    private char[][] map;
 
+    public GameMap() {
+        this(80);
+    }
+    public GameMap(Integer size) {
+        this(size, size);
+    }
+    public GameMap(Integer width, Integer heigth) {
+        this.map = new char[width][heigth];
+        // TODO Проверить правильность размещения координат, по идее должно быть так.
+    }
+
+    public void clear() {
+        for (char[] row : map) {
+            for (char cell : row) {
+                cell = 95;
+            }
+        }
+        for (int i = 0; i < map.length; i++) {
+            for (int j = 0; j < map[i].length; j++) {
+                map[i][j] = 95;
+            }
+        }
+
+    }
+
+    public void print() {
+        for (int i = map.length - 1; i >= 0; i--) {
+            for (int j = 0; j < map[i].length; j++) {
+                System.out.print(map[i][j]);
+            }
+            System.out.println();
+        }
+    }
+
+    public void refresh(Entity[] entities, Map<EntityType, EntityProperties> properties) {
+        clear();
+        for (Entity entity : entities) {
+            for (int i = entity.getPosition().getX(); i < entity.getPosition().getX() + properties.get(entity.getEntityType()).getSize(); i++) {
+                for (int j = entity.getPosition().getY(); j < entity.getPosition().getY() + properties.get(entity.getEntityType()).getSize(); j++) {
+                    map[j][i] = (char) switch (entity.getEntityType()) {
+                        case BUILDER_UNIT -> 98;
+                        case RANGED_UNIT -> 114;
+                        case MELEE_UNIT -> 109;
+                        case BUILDER_BASE -> 66;
+                        case MELEE_BASE -> 77;
+                        case RANGED_BASE -> 82;
+                        case HOUSE -> 72;
+                        case TURRET -> 84;
+                        case WALL -> 35;
+                        case RESOURCE -> 64;
+                    };
+                }
+            }
+        }
+    }
+}
+
+enum EntityOwner {
+    ALL(-1),
+    MY(0),
+    NEW(1);
+    public int tag;
+    EntityOwner(int tag) {
+        this.tag = tag;
+    }
+}
+
+class EntityStorage {
+    PlayerView playerView;
+
+    private Map<Integer, Entity> entities;
+    private Set<Integer> oldEntities;
+
+    private Map<Integer, Entity> allBuildUnit;
+    private Map<Integer, Entity> allMeleeUnit;
+    private Map<Integer, Entity> allRangeUnit;
+    private Map<Integer, Entity> allBuildBase;
+    private Map<Integer, Entity> allMeleeBase;
+    private Map<Integer, Entity> allRangeBase;
+    private Map<Integer, Entity> allHouse;
+    private Map<Integer, Entity> allTurret;
+    private Map<Integer, Entity> allWall;
+    private Map<Integer, Entity> allResource;
+
+    private Map<Integer, Entity> myBuildUnit;
+    private Map<Integer, Entity> myMeleeUnit;
+    private Map<Integer, Entity> myRangeUnit;
+    private Map<Integer, Entity> myTotalBase;
+    private Map<Integer, Entity> myBuildBase;
+    private Map<Integer, Entity> myMeleeBase;
+    private Map<Integer, Entity> myRangeBase;
+    private Map<Integer, Entity> myHouse;
+    private Map<Integer, Entity> myTurret;
+    private Map<Integer, Entity> myWall;
+
+    private Map<Integer, Entity> newBuildUnit;
+    private Map<Integer, Entity> newMeleeUnit;
+    private Map<Integer, Entity> newRangeUnit;
+    private Map<Integer, Entity> newBuildBase;
+    private Map<Integer, Entity> newMeleeBase;
+    private Map<Integer, Entity> newRangeBase;
+    private Map<Integer, Entity> newHouse;
+    private Map<Integer, Entity> newTurret;
+    private Map<Integer, Entity> newWall;
+
+
+    public EntityStorage(PlayerView playerView) {
+        this.playerView = playerView;
+
+        entities = new HashMap<>();
+        oldEntities = new HashSet<>();
+
+        allBuildUnit = new HashMap<>();
+        allMeleeUnit = new HashMap<>();
+        allRangeUnit = new HashMap<>();
+        allBuildBase = new HashMap<>();
+        allMeleeBase = new HashMap<>();
+        allRangeBase = new HashMap<>();
+        allHouse = new HashMap<>();
+        allTurret = new HashMap<>();
+        allWall = new HashMap<>();
+        allResource = new HashMap<>();
+
+        myBuildUnit = new HashMap<>();
+        myMeleeUnit = new HashMap<>();
+        myRangeUnit = new HashMap<>();
+        myTotalBase = new HashMap<>();
+        myBuildBase = new HashMap<>();
+        myMeleeBase = new HashMap<>();
+        myRangeBase = new HashMap<>();
+        myHouse = new HashMap<>();
+        myTurret = new HashMap<>();
+        myWall = new HashMap<>();
+
+        newBuildUnit = new HashMap<>();
+        newMeleeUnit = new HashMap<>();
+        newRangeUnit = new HashMap<>();
+        newBuildBase = new HashMap<>();
+        newMeleeBase = new HashMap<>();
+        newRangeBase = new HashMap<>();
+        newHouse = new HashMap<>();
+        newTurret = new HashMap<>();
+        newWall = new HashMap<>();
+    }
+
+    public void update(Entity[] entities, Map<EntityType, EntityProperties> properties) {
+        oldEntities = this.entities.keySet();
+        this.entities = Arrays.stream(entities).collect(HashMap::new, (m, i) -> m.put(i.getId(), i), Map::putAll);
+
+        // Список свежих юнитов всегда будет очищаться, что бы приказы не отсылались по несколько раз
+        newMapNullable();
+
+        // Если нашли значение среди старых, то просто исключаем из списка на удаление
+        // Всегда добавляем в мапы, что бы у нас были актуальные свойства entity, а не просто список
+        for (Entity newEntity : entities) {
+            if (oldEntities.contains(newEntity.getId())) {
+                oldEntities.remove(newEntity.getId());
+            } else {
+                add(newEntity, true);
+            }
+            add(newEntity);
+        }
+
+        // Всё что не нашлось среди новых значений считаем что было убито и исключаем из мап.
+        for (Integer oldEntity : oldEntities) {
+            remove(oldEntity);
+        }
+    }
+
+    private void add(Entity e){
+        add(e, false);
+    }
+
+    private void add(Entity e, boolean isNew) {
+        switch (e.getEntityType()) {
+            case BUILDER_UNIT -> {
+                allBuildUnit.put(e.getId(), e);
+                if (e.getPlayerId() == playerView.getMyId()) {
+                    myBuildUnit.put(e.getId(), e);
+                    if (isNew) {
+                        newBuildUnit.put(e.getId(), e);
+                    }
+                }
+            }
+            case MELEE_UNIT -> {
+                allMeleeUnit.put(e.getId(), e);
+                if (e.getPlayerId() == playerView.getMyId()) {
+                    myMeleeUnit.put(e.getId(), e);
+                    if (isNew) {
+                        newMeleeUnit.put(e.getId(), e);
+                    }
+                }
+                break;
+            }
+            case RANGED_UNIT -> {
+                allRangeUnit.put(e.getId(), e);
+                if (e.getPlayerId() == playerView.getMyId()) {
+                    myRangeUnit.put(e.getId(), e);
+                    if (isNew) {
+                        newRangeUnit.put(e.getId(), e);
+                    }
+                }
+                break;
+            }
+            case BUILDER_BASE -> {
+                allBuildBase.put(e.getId(), e);
+                if (e.getPlayerId() == playerView.getMyId()) {
+                    myBuildBase.put(e.getId(), e);
+                    if (isNew) {
+                        myTotalBase.put(e.getId(), e);
+                        newBuildBase.put(e.getId(), e);
+                    }
+                }
+                break;
+            }
+            case MELEE_BASE -> {
+                allMeleeBase.put(e.getId(), e);
+                if (e.getPlayerId() == playerView.getMyId()) {
+                    myMeleeBase.put(e.getId(), e);
+                    if (isNew) {
+                        myTotalBase.put(e.getId(), e);
+                        newMeleeBase.put(e.getId(), e);
+                    }
+                }
+                break;
+            }
+            case RANGED_BASE -> {
+                allRangeBase.put(e.getId(), e);
+                if (e.getPlayerId() == playerView.getMyId()) {
+                    myRangeBase.put(e.getId(), e);
+                    if (isNew) {
+                        myTotalBase.put(e.getId(), e);
+                        newRangeBase.put(e.getId(), e);
+                    }
+                }
+                break;
+            }
+            case HOUSE -> {
+                allHouse.put(e.getId(), e);
+                if (e.getPlayerId() == playerView.getMyId()) {
+                    myHouse.put(e.getId(), e);
+                    if (isNew) {
+                        myTotalBase.put(e.getId(), e);
+                        newHouse.put(e.getId(), e);
+                    }
+                }
+                break;
+            }
+            case TURRET -> {
+                allTurret.put(e.getId(), e);
+                if (e.getPlayerId() == playerView.getMyId()) {
+                    myTurret.put(e.getId(), e);
+                    if (isNew) {
+                        myTotalBase.put(e.getId(), e);
+                        newTurret.put(e.getId(), e);
+                    }
+                }
+                break;
+            }
+            case WALL -> {
+                allWall.put(e.getId(), e);
+                if (e.getPlayerId() == playerView.getMyId()) {
+                    myWall.put(e.getId(), e);
+                    if (isNew) {
+                        newWall.put(e.getId(), e);
+                    }
+                }
+                break;
+            }
+            case RESOURCE -> {
+                allResource.put(e.getId(), e);
+            }
+        }
+
+    }
+
+    private void remove(Integer i) {
+        allBuildUnit.remove(i);
+        allMeleeUnit.remove(i);
+        allRangeUnit.remove(i);
+        allBuildBase.remove(i);
+        allMeleeBase.remove(i);
+        allRangeBase.remove(i);
+        allHouse.remove(i);
+        allTurret.remove(i);
+        allWall.remove(i);
+        allResource.remove(i);
+        myBuildUnit.remove(i);
+        myMeleeUnit.remove(i);
+        myRangeUnit.remove(i);
+        myBuildBase.remove(i);
+        myMeleeBase.remove(i);
+        myRangeBase.remove(i);
+        myHouse.remove(i);
+        myTurret.remove(i);
+        myWall.remove(i);
+    }
+
+    private void newMapNullable() {
+        newBuildUnit.clear();
+        newMeleeUnit.clear();
+        newRangeUnit.clear();
+        newBuildBase.clear();
+        newMeleeBase.clear();
+        newRangeBase.clear();
+        newHouse.clear();
+        newTurret.clear();
+        newWall.clear();
+    }
+
+    private EntityManager getEntityManager(Map<Integer, Entity> entity) {
+        return new EntityManager(entity, playerView);
+    }
+
+    public EntityManager getBuild() {
+        return getBuild(EntityOwner.MY);
+    }
+    public EntityManager getBuild(EntityOwner entityOwner) {
+        return getEntityManager(switch (entityOwner){
+            case ALL -> allBuildUnit;
+            case MY -> myBuildUnit;
+            case NEW -> newBuildUnit;
+        });
+    }
+
+    public EntityManager getMelee() {
+        return getMelee(EntityOwner.MY);
+    }
+    public EntityManager getMelee(EntityOwner entityOwner) {
+        return getEntityManager(switch (entityOwner){
+            case ALL -> allMeleeUnit;
+            case MY -> myMeleeUnit;
+            case NEW -> newMeleeUnit;
+        });
+    }
+
+    public EntityManager getRange() {
+        return getRange(EntityOwner.MY);
+    }
+    public EntityManager getRange(EntityOwner entityOwner) {
+        return getEntityManager(switch (entityOwner){
+            case ALL -> allRangeUnit;
+            case MY -> myRangeUnit;
+            case NEW -> newRangeUnit;
+        });
+    }
+
+    public EntityManager getTotalBase() {
+        return getEntityManager(myTotalBase);
+    }
+
+    public EntityManager getBuildBase() {
+        return getBuildBase(EntityOwner.MY);
+    }
+    public EntityManager getBuildBase(EntityOwner entityOwner) {
+        return getEntityManager(switch (entityOwner){
+            case ALL -> allBuildBase;
+            case MY -> myBuildBase;
+            case NEW -> newBuildBase;
+        });
+    }
+
+    public EntityManager getMeleeBase() {
+        return getMeleeBase(EntityOwner.MY);
+    }
+    public EntityManager getMeleeBase(EntityOwner entityOwner) {
+        return getEntityManager(switch (entityOwner){
+            case ALL -> allMeleeBase;
+            case MY -> myMeleeBase;
+            case NEW -> newMeleeBase;
+        });
+    }
+
+    public EntityManager getRangeBase() {
+        return getRangeBase(EntityOwner.MY);
+    }
+    public EntityManager getRangeBase(EntityOwner entityOwner) {
+        return getEntityManager(switch (entityOwner){
+            case ALL -> allRangeBase;
+            case MY -> myRangeBase;
+            case NEW -> newRangeBase;
+        });
+    }
+
+    public EntityManager getHouse() {
+        return getHouse(EntityOwner.MY);
+    }
+    public EntityManager getHouse(EntityOwner entityOwner) {
+        return getEntityManager(switch (entityOwner){
+            case ALL -> allHouse;
+            case MY -> myHouse;
+            case NEW -> newHouse;
+        });
+    }
+
+    public EntityManager getTurret() {
+        return getTurret(EntityOwner.MY);
+    }
+    public EntityManager getTurret(EntityOwner entityOwner) {
+        return getEntityManager(switch (entityOwner){
+            case ALL -> allTurret;
+            case MY -> myTurret;
+            case NEW -> newTurret;
+        });
+    }
+
+    public EntityManager getWall() {
+        return getWall(EntityOwner.MY);
+    }
+    public EntityManager getWall(EntityOwner entityOwner) {
+        return getEntityManager(switch (entityOwner){
+            case ALL -> allWall;
+            case MY -> myWall;
+            case NEW -> newWall;
+        });
+    }
+
+    public EntityManager getResource() {
+        return getEntityManager(allResource);
+    }
+
+    public Integer getLimit() {
+        Integer limit = 0;
+        limit += myBuildBase.size() * playerView.getEntityProperties().get(EntityType.BUILDER_BASE).getPopulationProvide();
+        limit += myMeleeBase.size() * playerView.getEntityProperties().get(EntityType.MELEE_BASE).getPopulationProvide();
+        limit += myRangeBase.size() * playerView.getEntityProperties().get(EntityType.RANGED_BASE).getPopulationProvide();
+        limit += myHouse.size() * playerView.getEntityProperties().get(EntityType.HOUSE).getPopulationProvide();
+        return limit;
+    }
+}
+
+class EntityManager {
+    private PlayerView playerView;
+    private Map<Integer, Entity> entity;
+
+    private MoveAction moveAction;
+    private BuildAction buildAction;
+    private boolean build;
+    private EntityType buildEntityType;
+    private Vec2Int buildPosition;
+    private AttackAction attackAction;
+    private RepairAction repairAction;
+
+    public EntityManager(Map<Integer, Entity> entity, PlayerView playerView) {
+        this.playerView = playerView;
+        this.entity = entity;
+        this.moveAction = null;
+        this.buildAction = null;
+        build = false;
+        buildEntityType = null;
+        buildPosition = null;
+        this.attackAction = null;
+        this.repairAction = null;
+    }
+
+    private boolean isBase(Entity entity) {
+        for (EntityType entityType : new EntityType[]{EntityType.BUILDER_BASE, EntityType.MELEE_BASE, EntityType.RANGED_BASE}) {
+            if (entity.getEntityType().equals(entityType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isUnit(Entity entity) {
+        for (EntityType entityType : new EntityType[]{EntityType.BUILDER_UNIT, EntityType.MELEE_UNIT, EntityType.RANGED_UNIT}) {
+            if (entity.getEntityType().equals(entityType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isType(Entity entity, EntityType[] entityTypes) {
+        for (EntityType entityType : entityTypes) {
+            if (entity.getEntityType().equals(entityType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public EntityManager getNearestAndMove (Vec2Int endPoint) {
+        return getNearestAndMove(endPoint, 1);
+    }
+    public EntityManager getNearestAndMove (Vec2Int endPoint, Integer size) {
+        Map<Integer, Entity> filtered = new HashMap<>();
+        double minDistance = 99;
+        double curDistance = 0;
+        Vec2Int minPos = null;
+        List<Vec2Int> positionAroundBase = Tools.getPositionAroundBase(endPoint, size);
+        for (Map.Entry<Integer, Entity> entry : entity.entrySet()) {
+            for (Vec2Int posA : positionAroundBase) {
+                curDistance = Tools.getSqrtDistance(entry.getValue().getPosition(), posA);
+                if (minDistance > curDistance) {
+                    minDistance = curDistance;
+                    minPos = posA;
+                    filtered.clear();
+                    filtered.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+        if (minPos != null) {
+            move(minPos);
+        }
+        entity = filtered;
+        return this;
+    }
+
+    // Фильтруем по ID. Либо выбираем, либо оставляем
+    public EntityManager filter(Set<Integer> filterIds) {
+        return filter(filterIds, true);
+    }
+    public EntityManager filter(Set<Integer> filterIds, boolean remove) {
+        if (remove) {
+            for (Integer filterId : filterIds) {
+                entity.remove(filterId);
+            }
+        } else {
+            Map<Integer, Entity> filtered = new HashMap<>();
+            for (Integer filterId : filterIds) {
+                filtered.put(entity.get(filterId).getId(), entity.get(filterId));
+            }
+            entity = filtered;
+        }
+        return this;
+    }
+
+    // Фильтруем какое-то количество
+    public EntityManager filter(int count) {
+        if (count > 0) {
+            Map<Integer, Entity> filtered = new HashMap<>();
+            for (Map.Entry<Integer, Entity> entry : entity.entrySet()) {
+                filtered.put(entry.getKey(), entry.getValue());
+                if (filtered.size() == count) {
+                    break;
+                }
+            }
+            this.entity = filtered;
+        }
+        return this;
+    }
+
+    public Integer count() {
+        return entity.size();
+    }
+
+    // По умолчанию ломимся до хаты
+    public EntityManager move() {
+        return move(5, 5);
+    }
+    // Можем идти как по координатам
+    public EntityManager move(Integer x, Integer y) {
+        return move(new Vec2Int(x, y));
+    }
+    // Так и в точку
+    public EntityManager move(Vec2Int target) {
+        return move(target, true, false);
+    }
+    // Даже с особенными параметрами
+    public EntityManager move(Vec2Int target, boolean findClosestPosition, boolean breakThrough) {
+        this.moveAction = new MoveAction(target, findClosestPosition, breakThrough);
+        return this;
+    }
+
+    // Месить всю карту
+    public EntityManager attack() {
+        return attack(new EntityType[]{});
+    }
+    // Для рабочих
+    public EntityManager attack(EntityType[] validTargets) {
+        return attack(new AutoAttack(playerView.getMaxPathfindNodes(), validTargets));
+    }
+    // Для целевой атаки
+    public EntityManager attack(Integer target) {
+        return attack(target, null);
+    }
+    // Для особенной автоатаки
+    public EntityManager attack(AutoAttack autoAttack) {
+        return attack(null, autoAttack);
+    }
+    // А это просто объединяющая
+    public EntityManager attack(Integer target, AutoAttack autoAttack) {
+        this.attackAction = new AttackAction(target, autoAttack);
+        return this;
+    }
+
+    // Эти для зданий
+    public EntityManager build() {
+        return build(null);
+    }
+    public EntityManager build(Vec2Int position) {
+        return build(null, position);
+    }
+    // Это для строителей
+    public EntityManager build(EntityType entityType, Vec2Int position) {
+        this.build = true;
+        this.buildEntityType = entityType;
+        this.buildPosition = position;
+        return this;
+    }
+
+    // Починка не может быть безцельной
+    public EntityManager repair(Integer target) {
+        repairAction = new RepairAction(target);
+        return this;
+    }
+
+    public Map<Integer, EntityAction> make(){
+        Map<Integer, EntityAction> actions = new HashMap<>();
+        for (Map.Entry<Integer, Entity> entry : entity.entrySet()) {
+            if (build) {
+                if (buildEntityType == null) {
+                    buildEntityType = playerView.getEntityProperties().get(entry.getValue().getEntityType()).getBuild().getOptions()[0];
+                    //Integer currentUnits = Math.toIntExact(Arrays.stream(playerView.getEntities()).filter(e -> gm.getId().equals(e.getPlayerId()) & e.getEntityType() == entityType).count());
+                    //if ((currentUnits + 1) * playerView.getEntityProperties().get(entityType).getPopulationUse() <= limits.get(currentLimit).getLimit(entityType)) {
+                }
+                if (buildPosition == null) {
+                    buildPosition =  new Vec2Int(
+                            entry.getValue().getPosition().getX() + playerView.getEntityProperties().get(entry.getValue().getEntityType()).getSize(),
+                            entry.getValue().getPosition().getY() + playerView.getEntityProperties().get(entry.getValue().getEntityType()).getSize() - 1
+                    );
+                }
+                if (isUnit(entry.getValue()) && moveAction == null){
+                    move(
+                            Tools.getMinimalPos(entry.getValue().getPosition(),
+                                    Tools.getPositionAroundBase(buildPosition, playerView.getEntityProperties().get(buildEntityType).getSize())
+                            ));
+                }
+                buildAction = new BuildAction(buildEntityType, buildPosition);
+            }
+            actions.put(entry.getKey(), new EntityAction(moveAction, buildAction, attackAction, repairAction));
+        }
+        return actions;
+    }
+
+    public Map<Integer, Entity> getEntity() {
+        return entity;
+    }
+}
+
+class Limits {
+    private Integer builderLimit;
+    private Integer meleeLimit;
+    private Integer rangeLimit;
+
+    public Limits(Integer builderLimit, Integer meleeLimit, Integer rangeLimit) {
+        this.builderLimit = builderLimit;
+        this.meleeLimit = meleeLimit;
+        this.rangeLimit = rangeLimit;
+    }
+
+    public Integer getLimit(EntityType entityType) {
+        switch (entityType) {
+            case BUILDER_UNIT:
+                return builderLimit;
+            case MELEE_UNIT:
+                return meleeLimit;
+            case RANGED_UNIT:
+                return rangeLimit;
+            default:
+                return 0;
+        }
+    }
+}
+
+class Building {
+    private Integer id;
+    private Vec2Int pos;
+    private EntityType type;
+    private Entity builded;
+
+    public Building(Vec2Int pos, EntityType type) {
+        this.pos = pos;
+        this.type = type;
+        this.builded = null;
+    }
+
+    public Vec2Int getPos() {
+        return pos;
+    }
+
+    public EntityType getType() {
+        return type;
+    }
+
+    public Entity getBuilded() {
+        return builded;
+    }
+
+    public void setBuilded(Entity builded) {
+        this.id = builded.getId();
+        this.builded = builded;
+    }
+}
+
+public class MyStrategy {
     private GameManager gm;
     private EntityStorage e;
-
 
     private static Map<Integer, Integer> craftUnitLimits = new HashMap<Integer, Integer>();
     private List<Building> buildQueue = new ArrayList<>();
     private static Map<Integer, Building> buildTasks = new HashMap<>();
+
 
     private void init() {
         craftUnitLimits.put(0, 0);
@@ -893,11 +1000,28 @@ public class MyStrategy {
         if (playerView.getCurrentTick() == 0) {
             gm = new GameManager(playerView);
             e = gm.getEntityStorage();
+            init();
         }
-
         gm.tick(playerView);
 
+        // TODO Сделать фазовый счётчик, типа, если мы построили 10 рабочих то одно, если потом построили 25 рэнжей, то другое
+        if (e.getBuild().count() >= 10) {
+            for (int i = 0; i < craftUnitLimits.get(gm.getLimit()); i++) {
+                // TODO Нужен нормальный менеджер строительства +- починки, что бы возвращал значения, пока не построено, потом менял, а то хуйня
+                // TODO И да, переделать поиск ближайшего, там срань.
+                gm.putActions(e.getBuild().getNearestAndMove(buildQueue.get(i).getPos(),gm.getProperty(buildQueue.get(i).getType()).getSize()).build(buildQueue.get(i).getType(), buildQueue.get(i).getPos()).make());
+            }
+        }
 
+        List<Entity> repairTasks = new ArrayList<>();
+        for (Entity entity : e.getTotalBase().getEntity().values()) {
+            if (entity.getHealth() < gm.getProperty(entity.getEntityType()).getMaxHealth()) {
+                repairTasks.add(entity);
+            }
+        }
+        for (Entity repairTask : repairTasks) {
+            gm.putActions(e.getBuild().getNearestAndMove(repairTask.getPosition(), gm.getProperty(repairTask.getEntityType()).getSize()).repair(repairTask.getId()).make());
+        }
         /*
 
         // Рабочие вседа добывают, но будет пачка, которая строит
@@ -929,7 +1053,7 @@ public class MyStrategy {
                     }
                     if (buildTasks.get(entity.getId()).getBuilded() != null) {
                         if (Ent.totalBuildings.get(buildTasks.get(entity.getId()).getBuilded().getId()).isActive()) {
-                            buildTasks.remove(entity.getId()); // TODO Если юнита убьют, задание пропадёт? Нужно поправить.
+                            buildTasks.remove(entity.getId());
                         } else {
                             r = new RepairAction(buildTasks.get(entity.getId()).getBuilded().getId());
                         }
