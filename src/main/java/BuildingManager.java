@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 class BuildingManager {
-    private PlayerView playerView;
-    private List<Building> buildingList; // Список всех построек
-    private List<Building> buildingQueue; // Список возможных построек
+    private final PlayerView playerView;
+    private final List<Building> buildingList; // Список всех построек
+    private final List<Building> buildingQueue; // Список возможных построек
 
 
     public BuildingManager(List<Building> buildingList, PlayerView playerView) {
@@ -18,7 +18,7 @@ class BuildingManager {
     public void update(GameMap gameMap) {
         buildingQueue.clear();
         for (Building building : buildingList) {
-            if (gameMap.isFree(building.getPos(), playerView.getEntityProperties().get(building.getType()).getSize())) {
+            if (gameMap.isFree(building.getPosition(), playerView.getEntityProperties().get(building.getType()).getSize())) {
                 buildingQueue.add(building);
             }
         }

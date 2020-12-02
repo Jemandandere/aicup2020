@@ -1,30 +1,31 @@
 import model.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 class EntityManager {
-    private PlayerView playerView;
+    private final PlayerView playerView;
+    private final GameMap map;
     private Map<Integer, Entity> entity;
 
     private MoveAction moveAction;
     private BuildAction buildAction;
-    private boolean build;
-    private EntityType buildEntityType;
-    private Vec2Int buildPosition;
+        private boolean build;
+        private EntityType buildEntityType;
+        private Vec2Int buildPosition;
     private AttackAction attackAction;
     private RepairAction repairAction;
 
-    public EntityManager(Map<Integer, Entity> entity, PlayerView playerView) {
+    public EntityManager(Map<Integer, Entity> entity, PlayerView playerView, GameMap map) {
         this.playerView = playerView;
-        this.entity = entity;
+        this.map = map;
+        this.entity = new HashMap<>(entity);
         this.moveAction = null;
         this.buildAction = null;
-        build = false;
-        buildEntityType = null;
-        buildPosition = null;
+        this.build = false;
+        this.buildEntityType = null;
+        this.buildPosition = null;
         this.attackAction = null;
         this.repairAction = null;
     }
@@ -69,26 +70,14 @@ class EntityManager {
     }
 
     public EntityManager getNearest(Vec2Int endPoint, Integer size, boolean move) {
-        Map<Integer, Entity> filtered = new HashMap<>();
-        double minDistance = 99;
-        double curDistance = 0;
-        Vec2Int minPos = null;
-        List<Vec2Int> positionAroundBase = Tools.getPositionAroundBase(endPoint, size);
-        for (Map.Entry<Integer, Entity> entry : entity.entrySet()) {
-            for (Vec2Int posA : positionAroundBase) {
-                curDistance = Tools.getSqrtDistance(entry.getValue().getPosition(), posA);
-                if (minDistance > curDistance) {
-                    minDistance = curDistance;
-                    minPos = posA;
-                    filtered.clear();
-                    filtered.put(entry.getKey(), entry.getValue());
-                }
+        Entity nearestEntity = map.getNearest(entity, endPoint, size);
+        entity.clear();
+        if (nearestEntity != null) {
+            entity.put(nearestEntity.getId(), nearestEntity);
+            if (move) {
+                move(map.getMinimalPos(nearestEntity.getPosition(), endPoint, size));
             }
         }
-        if (minPos != null) {
-            move(minPos);
-        }
-        entity = filtered;
         return this;
     }
 
@@ -189,7 +178,7 @@ class EntityManager {
 
     // Это для строителей
     public EntityManager build(Building building) {
-        return build(building.getType(), building.getPos());
+        return build(building.getType(), building.getPosition());
     }
 
     public EntityManager build(EntityType entityType, Vec2Int position) {
@@ -219,10 +208,7 @@ class EntityManager {
                     );
                 }
                 if (isUnit(entry.getValue()) && moveAction == null) {
-                    move(
-                            Tools.getMinimalPos(entry.getValue().getPosition(),
-                                    Tools.getPositionAroundBase(buildPosition, playerView.getEntityProperties().get(buildEntityType).getSize())
-                            ));
+                    move(map.getMinimalPos(entry.getValue().getPosition(), buildPosition, playerView.getEntityProperties().get(buildEntityType).getSize()));
                 }
                 buildAction = new BuildAction(buildEntityType, buildPosition);
             }

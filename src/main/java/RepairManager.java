@@ -5,8 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 class RepairManager {
-    private PlayerView playerView;
-    private List<Entity> repairQueue;
+    private final PlayerView playerView;
+    private final List<Entity> repairQueue;
 
     public RepairManager(PlayerView playerView) {
         this.playerView = playerView;

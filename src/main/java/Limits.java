@@ -1,9 +1,9 @@
 import model.EntityType;
 
 class Limits {
-    private Integer builderLimit;
-    private Integer meleeLimit;
-    private Integer rangeLimit;
+    private final Integer builderLimit;
+    private final Integer meleeLimit;
+    private final Integer rangeLimit;
 
     public Limits(Integer builderLimit, Integer meleeLimit, Integer rangeLimit) {
         this.builderLimit = builderLimit;

@@ -17,6 +17,7 @@ public class MyStrategy {
 
         // Пора писать код
 
+
         return gm.getAction();
     }
 

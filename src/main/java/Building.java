@@ -2,19 +2,19 @@ import model.EntityType;
 import model.Vec2Int;
 
 class Building {
-    private Vec2Int pos;
-    private EntityType type;
+    private final EntityType type;
+    private final Vec2Int position;
 
-    public Building(Vec2Int pos, EntityType type) {
-        this.pos = pos;
+    public Building(EntityType type, Vec2Int position) {
         this.type = type;
-    }
-
-    public Vec2Int getPos() {
-        return pos;
+        this.position = position;
     }
 
     public EntityType getType() {
         return type;
+    }
+
+    public Vec2Int getPosition() {
+        return position;
     }
 }

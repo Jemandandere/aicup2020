@@ -4,27 +4,27 @@ import java.util.*;
 
 public class GameManager {
     // Наш id
-    private Integer id;
+    private final Integer id;
     // Формат игры
-    private GameFormat gameFormat;
+    private final GameFormat gameFormat;
     // Фаза игры
     private GamePhase gamePhase;
     // Карта
-    private GameMap map;
+    private final GameMap map;
     // Свойства всех юнитов
-    private Map<EntityType, EntityProperties> properties;
+    private final Map<EntityType, EntityProperties> properties;
     // Хранилище всех юнитов
-    private EntityStorage entityStorage;
+    private final EntityStorage entityStorage;
     // Максимальный лимит
     private Integer limit;
     // Пороговые лимиты для каждого типа юнитов
-    private Map<Integer, Limits> limits;
+    private final Map<Integer, Limits> limits;
     // Менеджер построек
-    private BuildingManager buildingManager;
+    private final BuildingManager buildingManager;
     // Менеджер ремонта
-    private RepairManager repairManager;
+    private final RepairManager repairManager;
     // Действия передаваемые на сервер
-    private Map<Integer, EntityAction> actions;
+    private final Map<Integer, EntityAction> actions;
 
     public GameManager(PlayerView playerView) {
         id = playerView.getMyId();
@@ -32,7 +32,7 @@ public class GameManager {
         gamePhase = GamePhase.START;
         map = new GameMap(playerView);
         properties = playerView.getEntityProperties();
-        entityStorage = new EntityStorage(playerView);
+        entityStorage = new EntityStorage(playerView, getMap());
         limits = getLimitsMap();
         buildingManager = new BuildingManager(getBuildingList(), playerView);
         repairManager = new RepairManager(playerView);
@@ -91,36 +91,37 @@ public class GameManager {
     private List<Building> getBuildingList() {
         List<Building> buildingList = new ArrayList<>();
 
-        buildingList.add(new Building(new Vec2Int(1, 1), EntityType.HOUSE));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(1, 1)));
 
-        buildingList.add(new Building(new Vec2Int(5, 1), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(1, 5), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(9, 1), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(1, 9), EntityType.HOUSE));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(5, 1)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(1, 5)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(9, 1)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(1, 9)));
 
-        buildingList.add(new Building(new Vec2Int(11, 6), EntityType.HOUSE));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(11, 6)));
 
-        buildingList.add(new Building(new Vec2Int(13, 1), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(17, 1), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(21, 1), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(21, 5), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(21, 9), EntityType.HOUSE));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(13, 1)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(17, 1)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(21, 1)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(21, 5)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(21, 9)));
 
-        buildingList.add(new Building(new Vec2Int(5, 11), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(9, 11), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(13, 11), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(17, 11), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(21, 13), EntityType.HOUSE));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(5, 11)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(9, 11)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(13, 11)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(17, 11)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(21, 13)));
 
-        buildingList.add(new Building(new Vec2Int(25, 1), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(25, 5), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(25, 9), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(25, 13), EntityType.HOUSE));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(25, 1)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(25, 5)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(25, 9)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(25, 13)));
 
-        buildingList.add(new Building(new Vec2Int(29, 1), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(29, 5), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(29, 9), EntityType.HOUSE));
-        buildingList.add(new Building(new Vec2Int(29, 13), EntityType.HOUSE));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(29, 1)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(29, 5)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(29, 9)));
+        buildingList.add(new Building(EntityType.HOUSE, new Vec2Int(29, 13)));
+
         return buildingList;
     }
 
@@ -190,7 +191,7 @@ public class GameManager {
     public void tick(PlayerView playerView) {
         System.out.println("-----" + playerView.getCurrentTick() + "-----");
         map.refresh(playerView.getEntities(), properties);
-        entityStorage.update(playerView.getEntities(), properties);
+        entityStorage.update(playerView.getEntities());
         limit = entityStorage.getLimit();
         buildingManager.update(getMap());
         repairManager.update(getEntityStorage());
@@ -227,7 +228,7 @@ public class GameManager {
             for (int i = 0; i < getCrafterLimit(getEntityStorage().getBuild().count()); i++) {
                 Building building = getBuildingManager().getNext();
                 if (building != null) {
-                    EntityManager entityManager = getEntityStorage().getBuild().filter(builders).getNearest(building.getPos(), getProperty(building.getType()).getSize(), true);
+                    EntityManager entityManager = getEntityStorage().getBuild().filter(builders).getNearest(building.getPosition(), getProperty(building.getType()).getSize(), true);
                     builders.addAll(entityManager.getEntity().keySet());
                     putActions(entityManager.build(building).make());
                 }
@@ -235,7 +236,7 @@ public class GameManager {
             // Ремонт
             Set<Integer> repairs = new HashSet<>();
             for (Entity repair : getRepairManager().getQueue()) {
-                EntityManager entityManager = getEntityStorage().getBuild().getNearest(repair.getPosition(), getProperty(repair.getEntityType()).getSize());
+                EntityManager entityManager = getEntityStorage().getBuild().filter(repairs).getNearest(repair.getPosition(), getProperty(repair.getEntityType()).getSize());
                 repairs.addAll(entityManager.getEntity().keySet());
                 putActions(entityManager.repair(repair.getId()).make());
             }

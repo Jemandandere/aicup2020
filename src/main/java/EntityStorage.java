@@ -1,5 +1,4 @@
 import model.Entity;
-import model.EntityProperties;
 import model.EntityType;
 import model.PlayerView;
 
@@ -7,45 +6,47 @@ import java.util.*;
 
 class EntityStorage {
     PlayerView playerView;
+    GameMap map; // Вообще, здесь она не нужна, но мать ее
 
     private Map<Integer, Entity> entities;
     private Set<Integer> oldEntities;
 
-    private Map<Integer, Entity> allBuildUnit;
-    private Map<Integer, Entity> allMeleeUnit;
-    private Map<Integer, Entity> allRangeUnit;
-    private Map<Integer, Entity> allBuildBase;
-    private Map<Integer, Entity> allMeleeBase;
-    private Map<Integer, Entity> allRangeBase;
-    private Map<Integer, Entity> allHouse;
-    private Map<Integer, Entity> allTurret;
-    private Map<Integer, Entity> allWall;
-    private Map<Integer, Entity> allResource;
+    private final Map<Integer, Entity> allBuildUnit;
+    private final Map<Integer, Entity> allMeleeUnit;
+    private final Map<Integer, Entity> allRangeUnit;
+    private final Map<Integer, Entity> allBuildBase;
+    private final Map<Integer, Entity> allMeleeBase;
+    private final Map<Integer, Entity> allRangeBase;
+    private final Map<Integer, Entity> allHouse;
+    private final Map<Integer, Entity> allTurret;
+    private final Map<Integer, Entity> allWall;
+    private final Map<Integer, Entity> allResource;
 
-    private Map<Integer, Entity> myBuildUnit;
-    private Map<Integer, Entity> myMeleeUnit;
-    private Map<Integer, Entity> myRangeUnit;
-    private Map<Integer, Entity> myTotalBase;
-    private Map<Integer, Entity> myBuildBase;
-    private Map<Integer, Entity> myMeleeBase;
-    private Map<Integer, Entity> myRangeBase;
-    private Map<Integer, Entity> myHouse;
-    private Map<Integer, Entity> myTurret;
-    private Map<Integer, Entity> myWall;
+    private final Map<Integer, Entity> myBuildUnit;
+    private final Map<Integer, Entity> myMeleeUnit;
+    private final Map<Integer, Entity> myRangeUnit;
+    private final Map<Integer, Entity> myTotalBase;
+    private final Map<Integer, Entity> myBuildBase;
+    private final Map<Integer, Entity> myMeleeBase;
+    private final Map<Integer, Entity> myRangeBase;
+    private final Map<Integer, Entity> myHouse;
+    private final Map<Integer, Entity> myTurret;
+    private final Map<Integer, Entity> myWall;
 
-    private Map<Integer, Entity> newBuildUnit;
-    private Map<Integer, Entity> newMeleeUnit;
-    private Map<Integer, Entity> newRangeUnit;
-    private Map<Integer, Entity> newBuildBase;
-    private Map<Integer, Entity> newMeleeBase;
-    private Map<Integer, Entity> newRangeBase;
-    private Map<Integer, Entity> newHouse;
-    private Map<Integer, Entity> newTurret;
-    private Map<Integer, Entity> newWall;
+    private final Map<Integer, Entity> newBuildUnit;
+    private final Map<Integer, Entity> newMeleeUnit;
+    private final Map<Integer, Entity> newRangeUnit;
+    private final Map<Integer, Entity> newBuildBase;
+    private final Map<Integer, Entity> newMeleeBase;
+    private final Map<Integer, Entity> newRangeBase;
+    private final Map<Integer, Entity> newHouse;
+    private final Map<Integer, Entity> newTurret;
+    private final Map<Integer, Entity> newWall;
 
 
-    public EntityStorage(PlayerView playerView) {
+    public EntityStorage(PlayerView playerView, GameMap map) {
         this.playerView = playerView;
+        this.map = map;
 
         entities = new HashMap<>();
         oldEntities = new HashSet<>();
@@ -83,7 +84,7 @@ class EntityStorage {
         newWall = new HashMap<>();
     }
 
-    public void update(Entity[] entities, Map<EntityType, EntityProperties> properties) {
+    public void update(Entity[] entities) {
         oldEntities = this.entities.keySet();
         this.entities = Arrays.stream(entities).collect(HashMap::new, (m, i) -> m.put(i.getId(), i), Map::putAll);
 
@@ -239,7 +240,7 @@ class EntityStorage {
     }
 
     private EntityManager getEntityManager(Map<Integer, Entity> entity) {
-        return new EntityManager(entity, playerView);
+        return new EntityManager(entity, playerView, map);
     }
 
     public EntityManager getBuild() {
