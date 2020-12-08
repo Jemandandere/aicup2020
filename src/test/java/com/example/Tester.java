@@ -1,4 +1,7 @@
+package com.example;
+
 import model.Vec2Int;
+import org.junit.jupiter.api.Test;
 
 public class Tester {
 
@@ -21,10 +24,12 @@ public class Tester {
 
         @Override
         public String toString() {
-            return "("+pos.getX()+","+pos.getY() + ") (" + (pos.getX()+size) + "," + (pos.getY()+size) + ")";
+            return "(" + pos.getX() + "," + pos.getY() + ") (" + (pos.getX() + size) + "," + (pos.getY() + size) + ")";
         }
     }
-    public static void main(String[] args) {
+
+    @Test
+    public void main() {
         Rect a = new Rect(new Vec2Int(1, 1), 3);
         Rect b = new Rect(new Vec2Int(2, 3), 1);
         Rect c = new Rect(new Vec2Int(4, 4), 1);
@@ -40,7 +45,6 @@ public class Tester {
         System.out.println(incec(c, e));
         System.out.println(incec(c, f));
         System.out.println(incec(e, f));
-
     }
 
     static boolean incec(Rect a, Rect b) {
