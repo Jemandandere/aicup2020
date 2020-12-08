@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 public class Tester {
 
-    static class Rect {
+    private static class Rect {
         Vec2Int pos;
         Integer size;
 
