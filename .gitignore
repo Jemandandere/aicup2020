@@ -1,2 +1,10 @@
 # Project exclude paths
-/target/
+.target/
+#Temporary directories
+.out/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
