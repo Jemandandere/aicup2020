@@ -46,23 +46,23 @@ public class GameManager {
         limitsMap.put(0, new Limits(0,0,0));
         limitsMap.put(5, new Limits(5,0,0));
         limitsMap.put(10, new Limits(10,0,0));
-        limitsMap.put(15, new Limits(13,1,1));
-        limitsMap.put(20, new Limits(18,1,1));
-        limitsMap.put(25, new Limits(18,1,6));
-        limitsMap.put(30, new Limits(20,0,10));
-        limitsMap.put(35, new Limits(20,0,15));
-        limitsMap.put(40, new Limits(25,0,15));
-        limitsMap.put(45, new Limits(25,0,20));
-        limitsMap.put(50, new Limits(30,0,20));
-        limitsMap.put(55, new Limits(30,0,25));
-        limitsMap.put(60, new Limits(35,0,25));
-        limitsMap.put(65, new Limits(35,0,30));
-        limitsMap.put(70, new Limits(35,0,35));
-        limitsMap.put(75, new Limits(35,0,40));
-        limitsMap.put(80, new Limits(35,0,45));
-        limitsMap.put(85, new Limits(35,0,50));
-        limitsMap.put(90, new Limits(35,0,55));
-        limitsMap.put(95, new Limits(35,0,60));
+        limitsMap.put(15, new Limits(15,0,0));
+        limitsMap.put(20, new Limits(20,0,0));
+        limitsMap.put(25, new Limits(25,0,0));
+        limitsMap.put(30, new Limits(30,0,0));
+        limitsMap.put(35, new Limits(35,0,0));
+        limitsMap.put(40, new Limits(40,0,0));
+        limitsMap.put(45, new Limits(40,0,5));
+        limitsMap.put(50, new Limits(40,0,10));
+        limitsMap.put(55, new Limits(40,0,15));
+        limitsMap.put(60, new Limits(40,0,20));
+        limitsMap.put(65, new Limits(40,0,25));
+        limitsMap.put(70, new Limits(40,0,30));
+        limitsMap.put(75, new Limits(40,0,35));
+        limitsMap.put(80, new Limits(40,0,40));
+        limitsMap.put(85, new Limits(40,0,45));
+        limitsMap.put(90, new Limits(40,0,50));
+        limitsMap.put(95, new Limits(40,0,55));
         limitsMap.put(100, new Limits(40,0,60));
         limitsMap.put(105, new Limits(40,0,65));
         limitsMap.put(110, new Limits(40,0,70));
@@ -158,6 +158,19 @@ public class GameManager {
     }
 
     public Integer getLimit(EntityType entityType) {
+        /*return switch (getGamePhase()) {
+            case START -> switch (entityType) {
+                case BUILDER_UNIT -> 13;
+                case MELEE_UNIT -> 1;
+                case RANGED_UNIT -> 1;
+                default -> 0;
+            };
+            case ALLOW_BUILD -> switch (entityType) {
+                case BUILDER_UNIT -> getLimit() / 2;
+                case MELEE_UNIT, RANGED_UNIT -> getLimit() / 4;
+                default -> 0;
+            };
+        };*/
         return limits.get(limit).getLimit(entityType);
     }
 
@@ -216,11 +229,11 @@ public class GameManager {
         // Обнуляем старые действия
         actions.clear();
         // Рабочие постоянно добывают ресурсы, по всей карте
-        putActions(getEntityStorage().getBuild().attack(new EntityType[]{EntityType.RESOURCE}).make());
-        // Милишник на данный момент времени бесполезен, поэтому пойдет на базу к вражине
-        putActions(getEntityStorage().getMelee().move(75, 5).attack().make());
-        // Рэнжи группируются
-        putActions(getEntityStorage().getRange().move(map.getSize() / 2, map.getSize() / 2).attack().make());
+        putActions(getEntityStorage().getBuild().move(map.getSize() / 2, map.getSize() / 2).attack(new EntityType[]{EntityType.RESOURCE}).make());
+        // Милишники держат оборону
+        putActions(getEntityStorage().getMelee().move(map.getSize() / 4, map.getSize() / 4).attack(new AutoAttack(getProperty(EntityType.MELEE_UNIT).getSightRange(), new EntityType[]{})).make());
+        // Рэнжи группируются и атакуют
+        putActions(getEntityStorage().getRange().move(map.getSize() / 4, map.getSize() / 4).attack(new AutoAttack(getProperty(EntityType.RANGED_UNIT).getSightRange(), new EntityType[]{})).make());
 
         if (getGamePhase().tag >= GamePhase.ALLOW_BUILD.tag) {
             // Стройка
@@ -236,7 +249,7 @@ public class GameManager {
             // Ремонт
             Set<Integer> repairs = new HashSet<>();
             for (Entity repair : getRepairManager().getQueue()) {
-                EntityManager entityManager = getEntityStorage().getBuild().filter(repairs).getNearest(repair.getPosition(), getProperty(repair.getEntityType()).getSize());
+                EntityManager entityManager = getEntityStorage().getBuild().filter(repairs).getNearest(repair.getPosition(), getProperty(repair.getEntityType()).getSize(), true);
                 repairs.addAll(entityManager.getEntity().keySet());
                 putActions(entityManager.repair(repair.getId()).make());
             }

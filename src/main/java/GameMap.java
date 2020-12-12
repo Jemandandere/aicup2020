@@ -30,10 +30,10 @@ class GameMap {
         for (Entity entity : entities) {
             for (int i = entity.getPosition().getX(); i < entity.getPosition().getX() + properties.get(entity.getEntityType()).getSize(); i++) {
                 for (int j = entity.getPosition().getY(); j < entity.getPosition().getY() + properties.get(entity.getEntityType()).getSize(); j++) {
-                    map[i][j] = switch (entity.getEntityType()) {
+                    map[i][j] = true; /*switch (entity.getEntityType()) {
                         case BUILDER_UNIT, MELEE_UNIT, RANGED_UNIT -> false;
                         case BUILDER_BASE, MELEE_BASE, RANGED_BASE, HOUSE, TURRET, WALL, RESOURCE -> true;
-                    };
+                    };*/
                 }
             }
         }
